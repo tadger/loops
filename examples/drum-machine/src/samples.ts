@@ -12,6 +12,7 @@ export async function loadSamples(
   const entries = await Promise.all(
     Object.entries(SAMPLE_URLS).map(async ([id, url]) => {
       const response = await fetchFn(url);
+      if (!response.ok) throw new Error(`failed to load ${url}`);
       return [id, await ctx.decodeAudioData(await response.arrayBuffer())] as const;
     }),
   );

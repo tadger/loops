@@ -17,7 +17,7 @@ describe("SAMPLE_URLS", () => {
 describe("loadSamples", () => {
   it("fetches and decodes each sample, keyed by channel", async () => {
     const bytes = new Map(Object.entries(SAMPLE_URLS).map(([id, url]) => [url, new ArrayBuffer(id.length)]));
-    const fetchFn = vi.fn(async (url: string) => ({ arrayBuffer: async () => bytes.get(url)! }) as Response);
+    const fetchFn = vi.fn(async (url: string) => ({ ok: true, arrayBuffer: async () => bytes.get(url)! }) as Response);
     const decodeAudioData = vi.fn(async (b: ArrayBuffer) => buffer(String(b.byteLength)));
 
     const samples = await loadSamples({ decodeAudioData }, fetchFn as unknown as typeof fetch);
@@ -30,6 +30,15 @@ describe("loadSamples", () => {
     expect(samples.sd).toEqual(buffer("2"));
     expect(samples.chh).toEqual(buffer("3"));
     expect(samples.clap).toEqual(buffer("4"));
+  });
+});
+
+describe("loadSamples failures", () => {
+  it("throws naming the url when a response is not ok", async () => {
+    const fetchFn = vi.fn(async (url: string) => ({ ok: url !== "/samples/sd.wav", arrayBuffer: async () => new ArrayBuffer(1) }) as Response);
+    const decodeAudioData = vi.fn(async () => buffer("x"));
+
+    await expect(loadSamples({ decodeAudioData }, fetchFn as unknown as typeof fetch)).rejects.toThrow("failed to load /samples/sd.wav");
   });
 });
 
