@@ -15,6 +15,25 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(jsdom@31.0.1)(vite@8.3.8)
 
+  examples/drum-machine:
+    dependencies:
+      '@loops/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@loops/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@loops/web-audio':
+        specifier: workspace:*
+        version: link:../../packages/web-audio
+    devDependencies:
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(jsdom@31.0.1)(vite@8.3.8)
+
   packages/core:
     devDependencies:
       '@testing-library/react':
