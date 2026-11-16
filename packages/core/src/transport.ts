@@ -65,11 +65,31 @@ export interface Transport {
 const DEFAULT_BPM = 120;
 /** Tolerance so a time computed for an exact tick never floors to the tick before it. */
 const TICK_EPSILON = 1e-9;
+/** How long a superseded timeline segment is kept so `getPosition` for earlier times stays exact. */
+const POSITION_HISTORY_SECONDS = 1;
 
 const noop = () => {};
 
 function mod(n: number, m: number): number {
   return ((n % m) + m) % m;
+}
+
+/** A stretch of the absolute timeline that a `setLoop` superseded at absolute tick `until`. */
+interface Segment {
+  readonly anchor: TempoAnchor;
+  readonly originTick: number;
+  readonly length: number;
+  readonly until: number;
+}
+
+/** Integer absolute tick reached at `time` under `anchor`. */
+function tickAtTime(anchor: TempoAnchor, time: number): number {
+  return Math.floor(tickAt(anchor, time) + TICK_EPSILON);
+}
+
+/** Origin placing the relative tick at `at` under the old length at the same relative tick modulo the new length. */
+function resizedOrigin(originTick: number, at: number, oldLength: number, newLength: number): number {
+  return at - mod(mod(at - originTick, oldLength), newLength);
 }
 
 /** Creates a transport. All state lives in this closure; transports never share anything. */
@@ -85,8 +105,10 @@ export function createTransport(options: TransportOptions): Transport {
   let originTick = 0;
   /** Absolute tick up to which notes have been emitted (the committed region ends here). */
   let scheduledUpTo = 0;
-  /** Absolute tick at which the current play run began; positions before it are clamped to it. */
-  let playedFrom = 0;
+  /** Positions before this absolute tick are clamped to it (play start, first loop, or pruned history). */
+  let positionFloor = 0;
+  /** Superseded segments, oldest first, each ending where the next (or the current one) begins. */
+  let history: Segment[] = [];
   /** Bumped on stop and dispose so a pass in progress stops emitting into a reset timeline. */
   let session = 0;
   let cancelTimer: (() => void) | null = null;
@@ -161,10 +183,33 @@ export function createTransport(options: TransportOptions): Transport {
     cancelTimer = null;
   }
 
+  /** Keeps the timeline in force before `at` so positions before it don't jump when `setLoop` changes it. */
+  function supersedeSegment(at: number): void {
+    if (compiled === null) {
+      positionFloor = at;
+      return;
+    }
+    const currentStart = history.at(-1)?.until ?? positionFloor;
+    if (currentStart < at) history.push({ anchor, originTick, length: compiled.length, until: at });
+    const cutoff = clock.now() - POSITION_HISTORY_SECONDS;
+    while (history.length > 0 && timeAt(history[0]!.anchor, history[0]!.until) < cutoff) {
+      positionFloor = history.shift()!.until;
+    }
+  }
+
+  function positionAt(time: number): number {
+    for (const segment of history) {
+      const abs = tickAtTime(segment.anchor, time);
+      if (abs < segment.until) return mod(Math.max(positionFloor, abs) - segment.originTick, segment.length);
+    }
+    return relative(Math.max(positionFloor, tickAtTime(anchor, time)));
+  }
+
   /** Begins playing from absolute tick `tick`, placing it `startDelay` after now. */
   function playFrom(tick: number): void {
     anchor = createAnchor(tick, clock.now() + startDelay, bpm());
-    playedFrom = tick;
+    positionFloor = tick;
+    history = [];
     // Subscribers may call pause/stop/dispose, so the timer must exist before they run.
     replaceSnapshot({ status: "playing" });
     startTimer();
@@ -185,19 +230,20 @@ export function createTransport(options: TransportOptions): Transport {
     getPosition(at) {
       if (compiled === null) return null;
       if (snapshot.status !== "playing") return { tick: relative(scheduledUpTo) };
-      const abs = Math.max(playedFrom, Math.floor(tickAt(anchor, at ?? clock.now()) + TICK_EPSILON));
-      return { tick: relative(abs) };
+      return { tick: positionAt(at ?? clock.now()) };
     },
 
     setLoop(loop) {
       if (disposed || loop === snapshot.loop) return;
-      const hadLoop = compiled !== null;
-      compiled = compileLoop(loop);
-      if (!hadLoop) {
-        // The first loop takes effect at the first uncommitted tick, from its own tick 0.
-        originTick = scheduledUpTo;
-        if (snapshot.status === "playing") anchor = reanchor(anchor, scheduledUpTo, compiled.tempo);
-      }
+      // Applies at the first uncommitted tick: everything before it is already emitted and stays.
+      const at = scheduledUpTo;
+      const next = compileLoop(loop);
+      if (snapshot.status === "playing") supersedeSegment(at);
+      if (next.tempo !== anchor.bpm) anchor = reanchor(anchor, at, next.tempo);
+      // The first loop starts at its own tick 0 rather than carrying a relative position over.
+      if (compiled === null) originTick = at;
+      else if (next.length !== compiled.length) originTick = resizedOrigin(originTick, at, compiled.length, next.length);
+      compiled = next;
       update({ loop });
     },
 
@@ -222,7 +268,8 @@ export function createTransport(options: TransportOptions): Transport {
       session++;
       originTick = 0;
       scheduledUpTo = 0;
-      playedFrom = 0;
+      positionFloor = 0;
+      history = [];
       update({ status: "stopped" });
     },
 
