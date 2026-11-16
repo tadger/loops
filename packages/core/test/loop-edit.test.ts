@@ -12,7 +12,8 @@ import {
   steps,
   toggleNote,
 } from "../src/loop-edit";
-import { arbLoop, deepFreeze } from "./helpers";
+import { MAX_DATA_DEPTH } from "../src/note";
+import { arbLoop, deepFreeze, nest } from "./helpers";
 
 function makeLoop(): Loop {
   return {
@@ -349,5 +350,34 @@ describe("properties", () => {
         },
       ),
     );
+  });
+});
+
+describe("data nesting depth", () => {
+  const limit = new RegExp(String(MAX_DATA_DEPTH));
+  const tooDeep = (kind: "array" | "object") => nest(MAX_DATA_DEPTH + 1, kind);
+
+  it.each(["array", "object"] as const)("addNote, toggleNote, setChannel and steps reject %s data past the cap", (kind) => {
+    const data = tooDeep(kind);
+    expect(() => addNote(makeLoop(), "kick", { at: 5, data })).toThrow(RangeError);
+    expect(() => addNote(makeLoop(), "kick", { at: 5, data })).toThrow(limit);
+    expect(() => toggleNote(makeLoop(), "kick", 5, { data })).toThrow(limit);
+    expect(() => setChannel(makeLoop(), "kick", [{ at: 5, data }])).toThrow(limit);
+    expect(() => steps("x", { stepTicks: 24, data })).toThrow(limit);
+  });
+
+  it.each(["array", "object"] as const)("reject %s data nested 5000 deep with RangeError naming the limit", (kind) => {
+    const data = nest(5000, kind);
+    expect(() => addNote(makeLoop(), "kick", { at: 5, data })).toThrow(limit);
+    expect(() => toggleNote(makeLoop(), "kick", 5, { data })).toThrow(limit);
+    expect(() => setChannel(makeLoop(), "kick", [{ at: 5, data }])).toThrow(limit);
+  });
+
+  it.each(["array", "object"] as const)("accept %s data exactly at the cap", (kind) => {
+    const data = nest(MAX_DATA_DEPTH, kind);
+    expect(addNote(makeLoop(), "kick", { at: 5, data }).channels.kick![1]!.data).toEqual(data);
+    expect(toggleNote(makeLoop(), "kick", 5, { data }).channels.kick![1]!.data).toEqual(data);
+    expect(setChannel(makeLoop(), "kick", [{ at: 5, data }]).channels.kick![0]!.data).toEqual(data);
+    expect(steps("x", { stepTicks: 24, data })[0]!.data).toEqual(data);
   });
 });

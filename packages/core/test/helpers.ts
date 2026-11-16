@@ -10,6 +10,13 @@ export function deepFreeze<T>(x: T): T {
   return x;
 }
 
+/** `depth` containers around a leaf, built iteratively so building never overflows the stack. */
+export function nest(depth: number, kind: "array" | "object"): Json {
+  let value: Json = "leaf";
+  for (let i = 0; i < depth; i++) value = kind === "array" ? [value] : { k: value };
+  return value;
+}
+
 const channelId = fc.oneof(
   fc.constantFrom("kick", "snare", "hat", "__proto__", "constructor"),
   fc.string({ minLength: 1, maxLength: 6 }),

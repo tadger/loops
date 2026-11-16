@@ -2,7 +2,8 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { loopLength, MAX_TEMPO, MIN_TEMPO, parseLoop, serializeLoop } from "../src/loop";
 import type { Loop } from "../src/loop";
-import { arbLoop, deepFreeze } from "./helpers";
+import { MAX_DATA_DEPTH } from "../src/note";
+import { arbLoop, deepFreeze, nest } from "./helpers";
 
 const SPEC_EXAMPLE = {
   version: 1,
@@ -135,11 +136,36 @@ describe("parseLoop / serializeLoop", () => {
       expect(found.every((p) => p.endsWith(".data"))).toBe(true);
     });
 
-    it("accepts deeply nested JSON", () => {
-      let deep: unknown = "leaf";
-      for (let i = 0; i < 500; i++) deep = i % 2 ? [deep] : { k: deep };
-      const loop = parseOk(base({ channels: { kick: [{ at: 0, data: deep }] } }));
-      expect(loop.channels.kick![0]!.data).toEqual(deep);
+    it("accepts data nested exactly MAX_DATA_DEPTH deep, as arrays or objects", () => {
+      for (const kind of ["array", "object"] as const) {
+        const deep = nest(MAX_DATA_DEPTH, kind);
+        const loop = parseOk(base({ channels: { kick: [{ at: 0, data: deep }] } }));
+        expect(loop.channels.kick![0]!.data).toEqual(deep);
+      }
+    });
+
+    it("rejects data one level past the cap with one diagnostic at the data path", () => {
+      for (const kind of ["array", "object"] as const) {
+        const result = parseLoop(base({ channels: { kick: [{ at: 0, data: nest(MAX_DATA_DEPTH + 1, kind) }] } }));
+        expect(result.ok).toBe(false);
+        if (result.ok) continue;
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0]!.path).toBe("channels.kick[0].data");
+        expect(result.errors[0]!.message).toContain(String(MAX_DATA_DEPTH));
+      }
+    });
+
+    it.each(["array", "object"] as const)("returns diagnostics, not a throw, for %s data nested 5000 deep", (kind) => {
+      const data = nest(5000, kind);
+      const result = parseLoop(base({ channels: { kick: [{ at: 0, data }, { at: 5, data }] } }));
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.map((e) => e.path)).toEqual(["channels.kick[0].data", "channels.kick[1].data"]);
+    });
+
+    it("measures depth per note, not across siblings", () => {
+      const wide = Array.from({ length: 10 }, () => nest(MAX_DATA_DEPTH, "array"));
+      expect(parseLoop(base({ channels: { kick: [{ at: 0, data: [wide[0]] }] } })).ok).toBe(false);
+      expect(parseLoop(base({ channels: { kick: wide.map((data, i) => ({ at: i, data })) } })).ok).toBe(true);
     });
 
     it("accepts a shared (non-cyclic) reference", () => {

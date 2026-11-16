@@ -17,12 +17,16 @@ export function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 1;
 }
 
+// Bounds the recursion in jsonProblem and cloneJson; clones only ever see validated data.
+export const MAX_DATA_DEPTH = 64;
+
 export function jsonProblem(value: unknown, ancestors: Set<object> = new Set()): string | undefined {
   if (value === null || typeof value === "boolean" || typeof value === "string") return undefined;
   if (typeof value === "number") return Number.isFinite(value) ? undefined : `${value} is not valid JSON`;
   if (typeof value !== "object") return `${typeof value} is not valid JSON`;
   if (ancestors.has(value)) return "cyclic structure is not valid JSON";
   if (!Array.isArray(value) && !isPlainObject(value)) return "only plain objects and arrays are valid JSON";
+  if (ancestors.size >= MAX_DATA_DEPTH) return `data is nested deeper than the limit of ${MAX_DATA_DEPTH} levels`;
   ancestors.add(value);
   try {
     const children = Array.isArray(value) ? Array.from(value) : Object.values(value);
