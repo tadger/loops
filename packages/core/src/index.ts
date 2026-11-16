@@ -3,3 +3,4 @@ export * from "./loop";
 export * from "./loop-edit";
 export * from "./compile";
 export * from "./tempo";
+export * from "./window";
