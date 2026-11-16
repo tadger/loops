@@ -5,10 +5,10 @@ export function createAudioClock(ctx: { readonly currentTime: number }): Clock {
 }
 
 // Background tabs throttle main-thread timers; Worker timers are exempt.
-// The Worker path can't run under Node; the demo's manual acceptance covers it.
+// Tests stub Worker; real-browser behavior is covered by the demo's manual acceptance.
 const WORKER_SOURCE = "onmessage=e=>setInterval(()=>postMessage(0),e.data)";
 
-function startWorker(ms: number, fn: () => void): (() => void) | null {
+function startWorker(ms: number, fn: () => void, onFailure: () => void): (() => void) | null {
   if (
     typeof Worker === "undefined" ||
     typeof Blob === "undefined" ||
@@ -27,7 +27,15 @@ function startWorker(ms: number, fn: () => void): (() => void) | null {
   } finally {
     URL.revokeObjectURL(url);
   }
-  worker.onmessage = fn;
+  worker.onmessage = () => fn();
+  // A script that fails to load is reported here, after construction succeeded.
+  let failed = false;
+  worker.onerror = () => {
+    if (failed) return;
+    failed = true;
+    worker.terminate();
+    onFailure();
+  };
   worker.postMessage(ms);
   return () => worker.terminate();
 }
@@ -40,8 +48,14 @@ function startInterval(ms: number, fn: () => void): () => void {
 export function createWorkerTimer(): Timer {
   return {
     every(ms, fn) {
-      let stop: (() => void) | null = startWorker(ms, fn) ?? startInterval(ms, fn);
+      let stop: (() => void) | null = null;
+      let cancelled = false;
+      const fallBack = () => {
+        if (!cancelled) stop = startInterval(ms, fn);
+      };
+      stop = startWorker(ms, fn, fallBack) ?? startInterval(ms, fn);
       return () => {
+        cancelled = true;
         stop?.();
         stop = null;
       };
