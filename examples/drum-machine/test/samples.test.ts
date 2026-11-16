@@ -42,23 +42,50 @@ describe("loadSamples failures", () => {
 });
 
 describe("playSample", () => {
-  it("routes a buffer source through a gain node to the destination at the given time", () => {
+  function setup() {
+    const calls: string[] = [];
     const destination = {};
-    const gain = { gain: { value: 0 }, connect: vi.fn() };
-    const source = { buffer: null as unknown, connect: vi.fn(), start: vi.fn() };
+    const gain = {
+      gain: {
+        setValueAtTime: vi.fn((v: number, t: number) => calls.push(`set ${v} ${t}`)),
+        linearRampToValueAtTime: vi.fn((v: number, t: number) => calls.push(`ramp ${v} ${t}`)),
+      },
+      connect: vi.fn(),
+    };
+    const source = { buffer: null as unknown, connect: vi.fn(), start: vi.fn((t: number) => calls.push(`start ${t}`)) };
     const ctx = {
       destination,
       createBufferSource: vi.fn(() => source),
       createGain: vi.fn(() => gain),
     };
+    return { calls, destination, gain, source, ctx: ctx as unknown as BaseAudioContext };
+  }
+
+  it("routes a buffer source through a gain node to the destination", () => {
+    const { ctx, gain, source, destination } = setup();
     const buf = buffer("kick");
 
-    playSample(ctx as unknown as BaseAudioContext, buf, 1.25, 0.5);
+    playSample(ctx, buf, 1.25, { gain: 0.5, attack: 0 });
 
     expect(source.buffer).toBe(buf);
     expect(source.connect).toHaveBeenCalledWith(gain);
     expect(gain.connect).toHaveBeenCalledWith(destination);
-    expect(gain.gain.value).toBe(0.5);
-    expect(source.start).toHaveBeenCalledWith(1.25);
+  });
+
+  it("sets the gain directly when there is no attack", () => {
+    const { ctx, gain, calls } = setup();
+
+    playSample(ctx, buffer("kick"), 1.25, { gain: 0.5, attack: 0 });
+
+    expect(gain.gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+    expect(calls).toEqual(["set 0.5 1.25", "start 1.25"]);
+  });
+
+  it("ramps from silence to the gain over the attack", () => {
+    const { ctx, calls } = setup();
+
+    playSample(ctx, buffer("kick"), 2, { gain: 0.8, attack: 0.05 });
+
+    expect(calls).toEqual(["set 0 2", "ramp 0.8 2.05", "start 2"]);
   });
 });

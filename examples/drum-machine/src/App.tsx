@@ -7,6 +7,7 @@ import { StepGrid } from "./StepGrid";
 import { CHANNELS, createInitialLoop, STEP_TICKS, toggleStep } from "./loop-state";
 import { exportLoop, importLoop, loadLoop, saveLoop } from "./persistence";
 import { loadSamples, playSample } from "./samples";
+import { readStepData } from "./step-data";
 
 interface Audio {
   ctx: AudioContext;
@@ -142,8 +143,7 @@ function ChannelPlayer({ channel, audio }: { channel: string; audio: Audio | nul
   useChannel(channel, (e: NoteEvent) => {
     const buffer = audio?.samples[channel];
     if (audio === null || buffer === undefined) return;
-    const gain = (e.note.data as { gain?: number } | undefined)?.gain ?? 1;
-    playSample(audio.ctx, buffer, e.time, gain);
+    playSample(audio.ctx, buffer, e.time, readStepData(e.note));
   });
   return null;
 }
