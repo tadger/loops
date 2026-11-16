@@ -2,6 +2,7 @@
   "name": "loops",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.21.0",
   "scripts": {
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck"
