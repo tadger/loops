@@ -105,11 +105,22 @@ describe("setStepData", () => {
     expect(next.channels.clap).toEqual([{ at: 0, data: { gain: 0.5, attack: 0.02 } }]);
   });
 
+  it("keeps the note's duration", () => {
+    const base = createInitialLoop();
+    const loop: Loop = { ...base, channels: { ...base.channels, clap: [{ at: 0, duration: 12, data: { gain: 1, attack: 0 } }] } };
+    expect(setStepData(loop, "clap", 0, { gain: 0.3 }).channels.clap).toEqual([{ at: 0, duration: 12, data: { gain: 0.3, attack: 0 } }]);
+  });
+
   it("does not mutate a frozen loop", () => {
     const loop = deepFreeze(createInitialLoop());
     const snapshot = structuredClone(loop);
     expect(getStepData(setStepData(loop, "kick", 0, { gain: 0.2 }), "kick", 0)?.gain).toBe(0.2);
     expect(loop).toEqual(snapshot);
+  });
+
+  it("applies the finite fields of a mixed patch", () => {
+    const next = setStepData(createInitialLoop(), "kick", 0, { gain: NaN, attack: 0.05 });
+    expect(getStepData(next, "kick", 0)).toEqual({ gain: 1, attack: 0.05 });
   });
 
   it("returns the same loop for an off step", () => {

@@ -52,6 +52,6 @@ export function setStepData(loop: Loop, channel: string, step: number, patch: Pa
     attack: Number.isFinite(patch.attack) ? patch.attack! : current.attack,
   });
   if (next.gain === current.gain && next.attack === current.attack) return loop;
-  const notes = loop.channels[channel]!.map((n) => (n === note ? { at: n.at, data: next } : n));
+  const notes = loop.channels[channel]!.map((n) => (n === note ? { ...n, data: next } : n));
   return setChannel(loop, channel, notes);
 }
