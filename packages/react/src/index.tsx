@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useReducer, useRef, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { createTransport } from "@loops/core";
 import type { Clock, Loop, NoteEvent, Timer, Transport, TransportOptions, TransportSnapshot } from "@loops/core";
@@ -10,37 +10,48 @@ export type TransportProviderProps = { loop?: Loop; children: ReactNode } & (
 
 const TransportContext = createContext<Transport | null>(null);
 
-/** Owned transports this module has disposed. */
-const disposed = new WeakSet<Transport>();
+interface Owned {
+  transport: Transport;
+  clock: Clock;
+  timer: Timer;
+  disposed: boolean;
+}
 
-function useOwnedTransport(
-  clock: Clock | undefined,
-  timer: Timer | undefined,
-  options: Omit<TransportOptions, "clock" | "timer"> | undefined,
-): Transport | null {
-  const create = () => (clock && timer ? createTransport({ ...options, clock, timer }) : null);
-  const [owned, setOwned] = useState(create);
+function useLiveTransport(props: TransportProviderProps): Transport {
+  const ownedRef = useRef<Owned | null>(null);
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+
+  let owned: Owned | null = null;
+  let transport: Transport;
+  if (props.transport !== undefined) {
+    transport = props.transport;
+  } else {
+    const { clock, timer, options } = props;
+    owned = ownedRef.current;
+    // dispose() is terminal, so a live transport is created in render whenever there is none for this
+    // clock/timer (first render, after StrictMode's simulated unmount, after a prop switch). `options` is read only here.
+    if (owned === null || owned.disposed || owned.clock !== clock || owned.timer !== timer) {
+      owned = { transport: createTransport({ ...options, clock, timer }), clock, timer, disposed: false };
+      ownedRef.current = owned;
+    }
+    transport = owned.transport;
+  }
 
   useEffect(() => {
-    if (!clock || !timer) return;
-    // dispose() is terminal, so after StrictMode's simulated unmount (or a clock/timer change)
-    // replace the transport; the re-render's effect then owns the new one.
-    if (owned === null || disposed.has(owned)) {
-      setOwned(create());
-      return;
-    }
+    if (owned === null) return;
+    // StrictMode remounted this effect after disposing; re-render to create a live one.
+    if (owned.disposed) return rerender();
     return () => {
-      disposed.add(owned);
-      owned.dispose();
+      owned.disposed = true;
+      owned.transport.dispose();
     };
-  }, [owned, clock, timer]);
+  }, [owned]);
 
-  return clock && timer ? owned : null;
+  return transport;
 }
 
 export function TransportProvider(props: TransportProviderProps): ReactNode {
-  const owned = useOwnedTransport(props.clock, props.timer, props.options);
-  const transport = props.transport ?? owned!;
+  const transport = useLiveTransport(props);
   const { loop } = props;
 
   useEffect(() => {

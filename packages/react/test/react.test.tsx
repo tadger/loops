@@ -8,6 +8,24 @@ import { createFakeEnv } from "@loops/core/testing";
 import type { FakeEnv } from "@loops/core/testing";
 import { TransportProvider, useChannel, usePlayhead, useTransport, useTransportState } from "../src/index";
 
+// Every transport records its own disposal, so tests can tell whether a render saw a disposed one.
+const { disposedTransports } = vi.hoisted(() => ({ disposedTransports: new WeakSet<object>() }));
+vi.mock("@loops/core", async (importOriginal) => {
+  const core = await importOriginal<typeof import("@loops/core")>();
+  return {
+    ...core,
+    createTransport: (options: Parameters<typeof core.createTransport>[0]) => {
+      const transport = core.createTransport(options);
+      const dispose = transport.dispose;
+      transport.dispose = () => {
+        disposedTransports.add(transport);
+        dispose();
+      };
+      return transport;
+    },
+  };
+});
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -21,6 +39,21 @@ function makeLoop(tempo = 120): Loop {
 function makeExternal(): { env: FakeEnv; transport: Transport } {
   const env = createFakeEnv();
   return { env, transport: createTransport({ clock: env.clock, timer: env.timer }) };
+}
+
+/** A consumer that records every transport it renders with, whether it was disposed then, and kick events. */
+function makeProbe() {
+  const seen: Transport[] = [];
+  const disposedAtRender: Transport[] = [];
+  const events: NoteEvent[] = [];
+  function Probe() {
+    const transport = useTransport();
+    seen.push(transport);
+    if (disposedTransports.has(transport)) disposedAtRender.push(transport);
+    useChannel("kick", (e) => events.push(e));
+    return null;
+  }
+  return { Probe, seen, disposedAtRender, events, current: () => seen.at(-1)! };
 }
 
 describe("TransportProvider with an owned transport", () => {
@@ -50,8 +83,10 @@ describe("TransportProvider with an owned transport", () => {
     const env = createFakeEnv();
     const events: NoteEvent[] = [];
     let transport: Transport | undefined;
+    const disposedAtRender: Transport[] = [];
     function Probe() {
       transport = useTransport();
+      if (disposedTransports.has(transport)) disposedAtRender.push(transport);
       useChannel("kick", (e) => events.push(e));
       return <span data-testid="status">{useTransportState((s) => s.status)}</span>;
     }
@@ -68,6 +103,7 @@ describe("TransportProvider with an owned transport", () => {
 
     expect(screen.getByTestId("status").textContent).toBe("playing");
     expect(events.map((e) => e.tick)).toEqual([0]);
+    expect(disposedAtRender).toEqual([]);
     expect(env.timer.activeCount).toBe(1);
 
     unmount();
@@ -128,6 +164,119 @@ describe("TransportProvider with an external transport", () => {
 
     unmount();
     expect(disposeA).not.toHaveBeenCalled();
+  });
+});
+
+describe("TransportProvider switching props", () => {
+  it("switches from an external transport to an owned one", () => {
+    const external = makeExternal();
+    const env = createFakeEnv();
+    const loop = makeLoop();
+    const probe = makeProbe();
+    const { rerender } = render(
+      <TransportProvider transport={external.transport} loop={loop}>
+        <probe.Probe />
+      </TransportProvider>,
+    );
+
+    rerender(
+      <TransportProvider clock={env.clock} timer={env.timer} loop={loop}>
+        <probe.Probe />
+      </TransportProvider>,
+    );
+
+    const owned = probe.current();
+    expect(owned).not.toBe(external.transport);
+    expect(probe.disposedAtRender).toEqual([]);
+    expect(disposedTransports.has(external.transport)).toBe(false);
+    act(() => owned.start());
+    act(() => env.run(0.5));
+    expect(probe.events).toHaveLength(1);
+  });
+
+  it("switches from an owned transport to an external one, disposing the owned one", () => {
+    const external = makeExternal();
+    const env = createFakeEnv();
+    const loop = makeLoop();
+    const probe = makeProbe();
+    const { rerender } = render(
+      <TransportProvider clock={env.clock} timer={env.timer} loop={loop}>
+        <probe.Probe />
+      </TransportProvider>,
+    );
+    const owned = probe.current();
+
+    rerender(
+      <TransportProvider transport={external.transport} loop={loop}>
+        <probe.Probe />
+      </TransportProvider>,
+    );
+
+    expect(disposedTransports.has(owned)).toBe(true);
+    expect(probe.current()).toBe(external.transport);
+    act(() => external.transport.start());
+    act(() => external.env.run(0.5));
+    expect(probe.events).toHaveLength(1);
+  });
+
+  it("switches owned → external → owned without exposing a disposed transport", () => {
+    const external = makeExternal();
+    const env = createFakeEnv();
+    const loop = makeLoop();
+    const probe = makeProbe();
+    const owned = () => (
+      <TransportProvider clock={env.clock} timer={env.timer} loop={loop}>
+        <probe.Probe />
+      </TransportProvider>
+    );
+    const { rerender, unmount } = render(owned());
+    const first = probe.current();
+    rerender(
+      <TransportProvider transport={external.transport} loop={loop}>
+        <probe.Probe />
+      </TransportProvider>,
+    );
+
+    rerender(owned());
+
+    const second = probe.current();
+    expect(second).not.toBe(first);
+    expect(second).not.toBe(external.transport);
+    expect(probe.disposedAtRender).toEqual([]);
+    act(() => second.start());
+    act(() => env.run(0.5));
+    expect(probe.events).toHaveLength(1);
+
+    unmount();
+    expect(env.timer.activeCount).toBe(0);
+  });
+
+  it("replaces the owned transport when clock and timer change", () => {
+    const envA = createFakeEnv();
+    const envB = createFakeEnv();
+    const loop = makeLoop();
+    const probe = makeProbe();
+    const view = (env: FakeEnv) => (
+      <TransportProvider clock={env.clock} timer={env.timer} loop={loop}>
+        <probe.Probe />
+      </TransportProvider>
+    );
+    const { rerender } = render(view(envA));
+    const first = probe.current();
+    act(() => first.start());
+    expect(envA.timer.activeCount).toBe(1);
+
+    rerender(view(envB));
+
+    const second = probe.current();
+    expect(second).not.toBe(first);
+    expect(disposedTransports.has(first)).toBe(true);
+    expect(envA.timer.activeCount).toBe(0);
+    expect(probe.disposedAtRender).toEqual([]);
+    probe.events.length = 0; // first.start() already emitted tick 0
+    act(() => second.start());
+    act(() => envB.run(0.5));
+    expect(probe.events).toHaveLength(1);
   });
 });
 
