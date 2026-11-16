@@ -384,6 +384,49 @@ describe("transport", () => {
     expect(env.timer.activeCount).toBe(0);
   });
 
+  it("never leaks or double-registers the timer when a subscriber pauses on seeing playing", () => {
+    const env = createFakeEnv();
+    let clockReads = 0;
+    const clock = { now: () => (clockReads++, env.clock.now()) };
+    const transport = createTransport({ clock, timer: env.timer, onError: vi.fn() });
+    transport.setLoop(makeLoop());
+    let pauseOnPlaying = true;
+    transport.subscribe(() => {
+      if (pauseOnPlaying && transport.getSnapshot().status === "playing") transport.pause();
+    });
+
+    transport.start();
+    expect(transport.getSnapshot().status).toBe("paused");
+    expect(env.timer.activeCount).toBe(0);
+
+    pauseOnPlaying = false;
+    transport.start();
+    expect(transport.getSnapshot().status).toBe("playing");
+    expect(env.timer.activeCount).toBe(1);
+
+    transport.dispose();
+    expect(env.timer.activeCount).toBe(0);
+    clockReads = 0;
+    env.run(1);
+    env.timer.fire();
+    expect(clockReads).toBe(0);
+  });
+
+  it("keeps the timer running when a subscriber throws on start", () => {
+    const { env, transport, events, record } = setup();
+    record("kick");
+    transport.setLoop(makeLoop());
+    const boom = new Error("boom");
+    transport.subscribe(() => {
+      throw boom;
+    });
+    expect(() => transport.start()).toThrow(boom);
+    expect(transport.getSnapshot().status).toBe("playing");
+    expect(env.timer.activeCount).toBe(1);
+    env.run(1.2);
+    expect(events.map((e) => e.tick)).toEqual([0, 192]);
+  });
+
   it("keeps two transports fully isolated", () => {
     const a = setup();
     const b = setup();

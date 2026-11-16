@@ -94,12 +94,21 @@ export function createTransport(options: TransportOptions): Transport {
   const listeners = new Set<() => void>();
   const handlers = new Map<string, Set<{ handler: (e: NoteEvent) => void }>>();
 
-  function update(next: Partial<TransportSnapshot>): void {
+  /** Replaces the snapshot if `status` or `loop` changed; returns whether it did. */
+  function replaceSnapshot(next: Partial<TransportSnapshot>): boolean {
     const status = next.status ?? snapshot.status;
     const loop = next.loop !== undefined ? next.loop : snapshot.loop;
-    if (status === snapshot.status && loop === snapshot.loop) return;
+    if (status === snapshot.status && loop === snapshot.loop) return false;
     snapshot = { status, loop };
+    return true;
+  }
+
+  function notify(): void {
     for (const listener of [...listeners]) listener();
+  }
+
+  function update(next: Partial<TransportSnapshot>): void {
+    if (replaceSnapshot(next)) notify();
   }
 
   const bpm = () => compiled?.tempo ?? DEFAULT_BPM;
@@ -122,7 +131,7 @@ export function createTransport(options: TransportOptions): Transport {
 
   /** One scheduling pass: emit every note in `[scheduledUpTo, horizon)` and commit the window. */
   function pump(): void {
-    if (snapshot.status !== "playing") return;
+    if (disposed || snapshot.status !== "playing") return;
     const now = clock.now();
     const horizon = Math.floor(tickAt(anchor, now + lookahead));
     if (!(horizon > scheduledUpTo)) return;
@@ -143,6 +152,7 @@ export function createTransport(options: TransportOptions): Transport {
   }
 
   function startTimer(): void {
+    stopTimer();
     cancelTimer = timer.every(interval * 1000, pump);
   }
 
@@ -155,8 +165,10 @@ export function createTransport(options: TransportOptions): Transport {
   function playFrom(tick: number): void {
     anchor = createAnchor(tick, clock.now() + startDelay, bpm());
     playedFrom = tick;
-    update({ status: "playing" });
+    // Subscribers may call pause/stop/dispose, so the timer must exist before they run.
+    replaceSnapshot({ status: "playing" });
     startTimer();
+    notify();
     pump();
   }
 
