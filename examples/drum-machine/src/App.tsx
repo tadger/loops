@@ -15,7 +15,7 @@ interface Audio {
   timer: Timer;
 }
 
-// Stand-ins until the first Play click creates the AudioContext; the provider swaps transports when they change.
+// Stand-ins until the first Play click creates the AudioContext.
 const inertClock: Clock = { now: () => 0 };
 const inertTimer: Timer = { every: () => () => {} };
 
@@ -36,7 +36,7 @@ export function App() {
     saveLoop(localStorage, next);
   };
 
-  // The AudioContext is created here, inside the click, because browsers require a user gesture.
+  // Runs inside the click: browsers require a user gesture to create the AudioContext.
   const prepareAudio = async (): Promise<void> => {
     setLoading(true);
     setError(null);
@@ -90,7 +90,7 @@ function Machine({ loop, onEdit, audio, loading, startRequested, onStarted, onPr
 
   usePlayhead((position) => setStep(position === null ? null : Math.floor(position.tick / STEP_TICKS)));
 
-  // Starts only once the provider has handed the new transport its loop, so the first pass already knows the tempo.
+  // Wait for the provider to give the new transport its loop, so the first pass has the tempo.
   useEffect(() => {
     if (!startRequested || audio === null || !loopApplied) return;
     transport.start();

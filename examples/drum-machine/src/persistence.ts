@@ -26,7 +26,6 @@ export function saveLoop(store: KeyValueStore, loop: Loop): void {
   store.setItem(STORAGE_KEY, JSON.stringify(serializeLoop(loop)));
 }
 
-/** `null` when nothing has been saved. */
 export function loadLoop(store: KeyValueStore): ParseLoopResult | null {
   const text = store.getItem(STORAGE_KEY);
   return text === null ? null : importLoop(text);

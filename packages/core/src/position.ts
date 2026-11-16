@@ -1,4 +1,4 @@
-/** Pulses (ticks) per quarter-note beat. */
+/** Ticks per quarter-note beat. */
 export const PPQN = 96;
 
 export interface Meter {
@@ -9,7 +9,7 @@ export type ParsePosResult = { ok: true; tick: number } | { ok: false; error: st
 
 const POS_PATTERN = /^(\d+)\.(\d+)\.(\d{2})$/;
 
-/** Parses a 1-based "bar.beat.tick" position (tick is 01..96) into an absolute tick. */
+/** Parses a 1-based "bar.beat.tick" position (tick 01..96) into an absolute tick. */
 export function parsePos(text: string, meter: Meter): ParsePosResult {
   const match = POS_PATTERN.exec(text);
   if (!match) return { ok: false, error: `invalid position "${text}": expected bar.beat.tick, e.g. "1.1.01"` };
@@ -28,14 +28,13 @@ export function parsePos(text: string, meter: Meter): ParsePosResult {
   return { ok: true, tick };
 }
 
-/** Like {@link parsePos} but returns the tick directly, throwing `RangeError` when invalid. */
+/** Like {@link parsePos}, but throws `RangeError` when invalid. */
 export function pos(text: string, meter: Meter): number {
   const result = parsePos(text, meter);
   if (!result.ok) throw new RangeError(result.error);
   return result.tick;
 }
 
-/** Formats an absolute tick as a 1-based "bar.beat.tick" position. */
 export function formatPos(tick: number, meter: Meter): string {
   if (!Number.isInteger(tick) || tick < 0) {
     throw new RangeError(`tick must be a non-negative integer, got ${tick}`);

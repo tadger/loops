@@ -17,7 +17,6 @@ export function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 1;
 }
 
-/** Returns why `value` is not JSON, or `undefined` when it is. `ancestors` detects cycles. */
 export function jsonProblem(value: unknown, ancestors: Set<object> = new Set()): string | undefined {
   if (value === null || typeof value === "boolean" || typeof value === "string") return undefined;
   if (typeof value === "number") return Number.isFinite(value) ? undefined : `${value} is not valid JSON`;
@@ -37,7 +36,6 @@ export function jsonProblem(value: unknown, ancestors: Set<object> = new Set()):
   return undefined;
 }
 
-/** Reports every problem with `note` through `fail`. `length` is the loop length, if known. */
 export function validateNote(note: unknown, path: string, length: number | undefined, fail: Fail): void {
   if (!isPlainObject(note)) {
     fail(path, "note must be an object");

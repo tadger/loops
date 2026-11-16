@@ -5,7 +5,7 @@ import type { FakeEnv } from "../src/testing";
 import { createTransport } from "../src/transport";
 import type { NoteEvent, Transport, TransportOptions } from "../src/transport";
 
-/** 1 bar of 4/4 at 120 bpm (384 ticks): kick at 0 and 192, snare at 96. */
+// 1 bar of 4/4 at 120 bpm = 384 ticks.
 function makeLoop(): Loop {
   return {
     version: 1,
@@ -16,7 +16,7 @@ function makeLoop(): Loop {
   };
 }
 
-/** Clock time of absolute tick `t` after `start()` at `startedAt`, at 120 bpm with the default 50 ms start delay. */
+/** Clock time of absolute tick `t` at 120 bpm, including the default 50 ms start delay. */
 const timeOf = (t: number, startedAt = 0) => startedAt + 0.05 + (t * 60) / (120 * 96);
 
 function setup(options: Partial<TransportOptions> = {}) {
@@ -38,7 +38,6 @@ describe("createFakeEnv", () => {
     expect(env.timer.activeCount).toBe(1);
     expect(env.timer.lastMs).toBe(25);
     env.run(0.1);
-    // Each time is exactly start + i * step (no accumulated addition error).
     expect(seen).toEqual([1, 2, 3, 4].map((i) => i * 0.025));
     expect(env.clock.now()).toBe(4 * 0.025);
     env.clock.set(1);
@@ -211,8 +210,8 @@ describe("transport", () => {
     env.run(0.3); // last window ends at floor((0.3 + 0.1 - 0.05) * 192) = 67
     transport.pause();
     expect(transport.getPosition()).toEqual({ tick: 67 });
-    env.run(1); // clock 1.3
-    transport.start(); // tick 67 at 1.35
+    env.run(1);
+    transport.start(); // tick 67 at clock 1.35
     env.run(0.5);
     expect(events).toHaveLength(1);
     expect(events[0]!.tick).toBe(96);
@@ -247,11 +246,11 @@ describe("transport", () => {
     record("kick");
     transport.setLoop(makeLoop());
     transport.start();
-    env.run(0.7); // clock 0.7
+    env.run(0.7);
     transport.pause();
     transport.stop();
     events.length = 0;
-    transport.start(); // tick 0 at 0.75
+    transport.start();
     env.run(0.2);
     expect(summary(events)).toEqual([["kick", 0, false]]);
     expect(events[0]!.time).toBeCloseTo(timeOf(0, 0.7), 9);

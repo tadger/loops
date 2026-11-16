@@ -2,9 +2,8 @@ import { loopLength, MAX_TEMPO, MIN_TEMPO } from "./loop";
 import type { Json, Loop, Note } from "./loop";
 import { cloneJson, cloneNote, isPositiveInteger, jsonProblem, validateNote } from "./note";
 
-// Pure edit helpers. Each returns a new loop (the same object when nothing changed), never
-// mutates its input, and keeps untouched channel arrays by reference so UIs can memoize on them.
-// Loops passed in are assumed valid; arguments are validated with the same rules as `parseLoop`.
+// Pure helpers: return the same loop when nothing changed, and keep untouched channel arrays by
+// reference so UIs can memoize on them. Input loops are assumed valid; arguments are validated.
 
 function hasChannel(loop: Loop, channel: string): boolean {
   return Object.hasOwn(loop.channels, channel);
@@ -18,7 +17,6 @@ function assertChannelId(channel: string): void {
   if (typeof channel !== "string" || channel === "") throw new RangeError("channel id must be a non-empty string");
 }
 
-/** Throws a `RangeError` for the first problem `note` has within a loop of `length` ticks. */
 function assertNote(note: unknown, path: string, length: number): void {
   let message: string | undefined;
   validateNote(note, path, length, (p, m) => void (message ??= `${p}: ${m}`));
@@ -29,7 +27,6 @@ function bySortedAt(notes: Note[]): Note[] {
   return notes.sort((a, b) => a.at - b.at);
 }
 
-/** Replaces (or appends) one channel, keeping channel order and every other channel by reference. */
 function withChannel(loop: Loop, channel: string, notes: Note[]): Loop {
   const entries = Object.entries(loop.channels).map(([id, existing]) => [id, id === channel ? notes : existing] as const);
   if (!hasChannel(loop, channel)) entries.push([channel, notes]);
@@ -37,10 +34,7 @@ function withChannel(loop: Loop, channel: string, notes: Note[]): Loop {
   return { ...loop, channels: Object.fromEntries(entries) };
 }
 
-/**
- * Adds a note at `at` if the channel has none there, otherwise removes every note at `at`.
- * `note` supplies `duration` and `data` for an added note; it is ignored when removing.
- */
+/** Adds a note at `at`, or removes every note there; `note` supplies `duration`/`data` when adding. */
 export function toggleNote(loop: Loop, channel: string, at: number, note?: Omit<Note, "at">): Loop {
   assertChannelId(channel);
   const length = loopLength(loop);
@@ -50,21 +44,20 @@ export function toggleNote(loop: Loop, channel: string, at: number, note?: Omit<
   return addNote(loop, channel, { ...note, at });
 }
 
-/** Inserts `note` into `channel`, keeping the channel sorted by `at`. Several notes may share an `at`. */
+/** Several notes may share an `at`. */
 export function addNote(loop: Loop, channel: string, note: Note): Loop {
   assertChannelId(channel);
   assertNote(note, "note", loopLength(loop));
   return withChannel(loop, channel, bySortedAt([...notesOf(loop, channel), cloneNote(note)]));
 }
 
-/** Removes every note at tick `at` from `channel`; returns `loop` itself if there is none. */
+/** Returns `loop` itself if no note is at `at`. */
 export function removeNotes(loop: Loop, channel: string, at: number): Loop {
   const existing = notesOf(loop, channel);
   const kept = existing.filter((n) => n.at !== at);
   return kept.length === existing.length ? loop : withChannel(loop, channel, kept);
 }
 
-/** Replaces the notes of `channel` (creating it if needed) with a sorted copy of `notes`. */
 export function setChannel(loop: Loop, channel: string, notes: Note[]): Loop {
   assertChannelId(channel);
   const length = loopLength(loop);
@@ -73,7 +66,6 @@ export function setChannel(loop: Loop, channel: string, notes: Note[]): Loop {
   return withChannel(loop, channel, bySortedAt(notes.map(cloneNote)));
 }
 
-/** Empties `channel`, keeping its key. */
 export function clearChannel(loop: Loop, channel: string): Loop {
   return setChannel(loop, channel, []);
 }
@@ -85,10 +77,7 @@ export function setTempo(loop: Loop, bpm: number): Loop {
   return bpm === loop.tempo ? loop : { ...loop, tempo: bpm };
 }
 
-/**
- * Changes `bars` and/or `beatsPerBar`. Notes that no longer fit (`at >= length` or
- * `at + duration > length`) are removed and reported in `dropped`, in channel then note order.
- */
+/** Notes that no longer fit are removed and reported in `dropped`, in channel then note order. */
 export function resize(
   loop: Loop,
   size: { bars?: number; beatsPerBar?: number },
@@ -111,10 +100,7 @@ export function resize(
   return { loop: { ...loop, bars, beatsPerBar, channels: Object.fromEntries(entries) }, dropped };
 }
 
-/**
- * Turns a step pattern into notes: `x` is a hit, `-` or `.` a rest, each taking `stepTicks`;
- * whitespace and `|` are ignored. `data`, if given, is copied onto every note.
- */
+/** `x` is a hit, `-` or `.` a rest, each `stepTicks` long; whitespace and `|` are ignored. */
 export function steps(pattern: string, opts: { stepTicks: number; data?: Json }): Note[] {
   const { stepTicks, data } = opts;
   if (!isPositiveInteger(stepTicks)) throw new RangeError("stepTicks must be an integer >= 1");

@@ -14,9 +14,7 @@ export interface Note<D extends Json = Json> {
 
 export interface Loop<D extends Json = Json> {
   version: 1;
-  /** Integer >= 1. */
   bars: number;
-  /** Integer >= 1. */
   beatsPerBar: number;
   /** Beats per minute, within `MIN_TEMPO..MAX_TEMPO`. */
   tempo: number;
@@ -34,7 +32,6 @@ export interface Diagnostic {
 
 export type ParseLoopResult = { ok: true; loop: Loop } | { ok: false; errors: Diagnostic[] };
 
-/** Loop length in ticks. */
 export function loopLength(loop: Pick<Loop, "bars" | "beatsPerBar">): number {
   return loop.bars * loop.beatsPerBar * PPQN;
 }
@@ -45,10 +42,7 @@ function channelPath(id: string): string {
   return id !== "" && !/[.[\]]/.test(id) ? `channels.${id}` : `channels[${JSON.stringify(id)}]`;
 }
 
-/**
- * Validates `input` as a loop, collecting every problem. On success returns a fresh,
- * canonical copy that shares nothing with `input`.
- */
+/** Collects every problem; on success returns a canonical copy that shares nothing with `input`. */
 export function parseLoop(input: unknown): ParseLoopResult {
   const errors: Diagnostic[] = [];
   const fail = (path: string, message: string) => void errors.push({ path, message });
@@ -97,10 +91,7 @@ export function parseLoop(input: unknown): ParseLoopResult {
   return { ok: true, loop: serializeLoop(input as unknown as Loop) };
 }
 
-/**
- * Returns a fresh canonical copy of `loop`: fixed key order, notes stably sorted by `at`,
- * channel ids in insertion order. Does not validate; use {@link parseLoop} for untrusted input.
- */
+/** Canonical copy: fixed key order, notes stably sorted by `at`. Does not validate; see {@link parseLoop}. */
 export function serializeLoop(loop: Loop): Loop {
   return {
     version: 1,

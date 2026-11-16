@@ -6,11 +6,9 @@ export interface ScheduledNote {
   note: Note;
   /** Absolute tick of this occurrence. */
   absTick: number;
-  /** Tick within the loop (the note's `at`). */
   tick: number;
 }
 
-/** Index of the first note with `at >= target` (notes sorted by `at`). */
 function lowerBound(notes: ReadonlyArray<Note>, target: number): number {
   let lo = 0;
   let hi = notes.length;
@@ -23,9 +21,8 @@ function lowerBound(notes: ReadonlyArray<Note>, target: number): number {
 }
 
 /**
- * Every note occurrence with `from <= absTick < to`, where occurrences of a note repeat at
- * `originTick + k * length + note.at` for every integer `k`. Ordered by `absTick`, then channel
- * order, then note order. Consecutive windows partition the timeline exactly.
+ * Occurrences in `[from, to)`; a note repeats at `originTick + k * length + note.at` for every integer `k`.
+ * Ordered by `absTick`, then channel, then note order.
  */
 export function queryWindow(
   compiled: CompiledLoop,
@@ -37,7 +34,7 @@ export function queryWindow(
   if (from === to) return [];
 
   const { length } = compiled;
-  // Every note has 0 <= at < length, so pass k only reaches [base + 0, base + length).
+  // 0 <= at < length, so pass k only reaches [base, base + length).
   const firstPass = Math.floor((from - originTick) / length);
   const lastPass = Math.floor((to - 1 - originTick) / length);
 

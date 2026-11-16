@@ -8,7 +8,7 @@ import { createFakeEnv } from "@loops/core/testing";
 import type { FakeEnv } from "@loops/core/testing";
 import { TransportProvider, useChannel, usePlayhead, useTransport, useTransportState } from "../src/index";
 
-// Every transport records its own disposal, so tests can tell whether a render saw a disposed one.
+// Records disposals so tests can tell whether a render saw a disposed transport.
 const { disposedTransports } = vi.hoisted(() => ({ disposedTransports: new WeakSet<object>() }));
 vi.mock("@loops/core", async (importOriginal) => {
   const core = await importOriginal<typeof import("@loops/core")>();
@@ -41,7 +41,6 @@ function makeExternal(): { env: FakeEnv; transport: Transport } {
   return { env, transport: createTransport({ clock: env.clock, timer: env.timer }) };
 }
 
-/** A consumer that records every transport it renders with, whether it was disposed then, and kick events. */
 function makeProbe() {
   const seen: Transport[] = [];
   const disposedAtRender: Transport[] = [];

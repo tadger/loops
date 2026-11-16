@@ -3,18 +3,15 @@ import type { Loop, Note } from "./loop";
 
 export interface CompiledLoop {
   readonly loop: Loop;
-  /** Loop length in ticks. */
   readonly length: number;
   readonly tempo: number;
-  /** In `Object.keys` order of `loop.channels`; each channel's notes sorted by `at` (stable). */
+  /** In `loop.channels` key order; notes stably sorted by `at`. */
   readonly channels: ReadonlyArray<{ readonly id: string; readonly notes: ReadonlyArray<Note> }>;
 }
 
-// Keyed by object identity and weakly held: entries die with their loop, and a new loop object
-// (e.g. from `resize`) is always compiled afresh.
+// Keyed by loop identity: an edited loop is a new object and compiles afresh.
 const compiled = new WeakMap<Loop, CompiledLoop>();
 
-/** Compiles `loop` for scheduling. Memoized per loop object; never mutates `loop`. */
 export function compileLoop(loop: Loop): CompiledLoop {
   let result = compiled.get(loop);
   if (result === undefined) {

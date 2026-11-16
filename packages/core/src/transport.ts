@@ -23,7 +23,6 @@ export interface NoteEvent {
   time: number;
   /** Seconds, from `note.duration` at the tempo in force; absent for one-shots. */
   duration?: number;
-  /** Loop-relative tick. */
   tick: number;
   /** True if `time` was already in the past when the event was emitted. */
   late: boolean;
@@ -61,11 +60,9 @@ export interface Transport {
   channel(id: string, handler: (e: NoteEvent) => void): () => void;
 }
 
-/** Tempo used to advance the timeline while playing without a loop. */
 const DEFAULT_BPM = 120;
-/** Tolerance so a time computed for an exact tick never floors to the tick before it. */
+/** Keeps a time computed for an exact tick from flooring to the tick before it. */
 const TICK_EPSILON = 1e-9;
-/** How long a superseded timeline segment is kept so `getPosition` for earlier times stays exact. */
 const POSITION_HISTORY_SECONDS = 1;
 
 const noop = () => {};
@@ -74,7 +71,7 @@ function mod(n: number, m: number): number {
   return ((n % m) + m) % m;
 }
 
-/** A stretch of the absolute timeline that a `setLoop` superseded at absolute tick `until`. */
+/** Timeline in force until absolute tick `until`, when a `setLoop` superseded it. */
 interface Segment {
   readonly anchor: TempoAnchor;
   readonly originTick: number;
@@ -82,17 +79,15 @@ interface Segment {
   readonly until: number;
 }
 
-/** Integer absolute tick reached at `time` under `anchor`. */
 function tickAtTime(anchor: TempoAnchor, time: number): number {
   return Math.floor(tickAt(anchor, time) + TICK_EPSILON);
 }
 
-/** Origin placing the relative tick at `at` under the old length at the same relative tick modulo the new length. */
+/** Origin that keeps the relative tick at `at`, modulo the new length. */
 function resizedOrigin(originTick: number, at: number, oldLength: number, newLength: number): number {
   return at - mod(mod(at - originTick, oldLength), newLength);
 }
 
-/** Creates a transport. All state lives in this closure; transports never share anything. */
 export function createTransport(options: TransportOptions): Transport {
   const { clock, timer, lookahead = 0.1, interval = 0.025, startDelay = 0.05 } = options;
   const onError = options.onError ?? ((error: unknown) => console.error(error));
@@ -103,20 +98,18 @@ export function createTransport(options: TransportOptions): Transport {
   // Absolute-tick timeline: loop-relative tick = (absolute - originTick) mod length.
   let anchor: TempoAnchor = createAnchor(0, 0, DEFAULT_BPM);
   let originTick = 0;
-  /** Absolute tick up to which notes have been emitted (the committed region ends here). */
+  /** Absolute tick up to which notes have been emitted; the committed region ends here. */
   let scheduledUpTo = 0;
-  /** Positions before this absolute tick are clamped to it (play start, first loop, or pruned history). */
+  /** Positions before this absolute tick clamp to it. */
   let positionFloor = 0;
-  /** Superseded segments, oldest first, each ending where the next (or the current one) begins. */
   let history: Segment[] = [];
-  /** Bumped on stop and dispose so a pass in progress stops emitting into a reset timeline. */
+  /** Bumped on stop and dispose so an in-progress pass stops emitting into a reset timeline. */
   let session = 0;
   let cancelTimer: (() => void) | null = null;
 
   const listeners = new Set<() => void>();
   const handlers = new Map<string, Set<{ handler: (e: NoteEvent) => void }>>();
 
-  /** Replaces the snapshot if `status` or `loop` changed; returns whether it did. */
   function replaceSnapshot(next: Partial<TransportSnapshot>): boolean {
     const status = next.status ?? snapshot.status;
     const loop = next.loop !== undefined ? next.loop : snapshot.loop;
@@ -151,14 +144,13 @@ export function createTransport(options: TransportOptions): Transport {
     }
   }
 
-  /** One scheduling pass: emit every note in `[scheduledUpTo, horizon)` and commit the window. */
   function pump(): void {
     if (disposed || snapshot.status !== "playing") return;
     const now = clock.now();
     const horizon = Math.floor(tickAt(anchor, now + lookahead));
     if (!(horizon > scheduledUpTo)) return;
     const from = scheduledUpTo;
-    // Commit first: the window is decided, and a re-entrant call must not query it again.
+    // Commit before emitting so a re-entrant pump never re-queries this window.
     scheduledUpTo = horizon;
     if (compiled === null) return;
 
@@ -183,7 +175,7 @@ export function createTransport(options: TransportOptions): Transport {
     cancelTimer = null;
   }
 
-  /** Keeps the timeline in force before `at` so positions before it don't jump when `setLoop` changes it. */
+  /** Keeps the old timeline for positions before `at` so they don't jump when `setLoop` changes it. */
   function supersedeSegment(at: number): void {
     if (compiled === null) {
       positionFloor = at;
@@ -205,12 +197,11 @@ export function createTransport(options: TransportOptions): Transport {
     return relative(Math.max(positionFloor, tickAtTime(anchor, time)));
   }
 
-  /** Begins playing from absolute tick `tick`, placing it `startDelay` after now. */
   function playFrom(tick: number): void {
     anchor = createAnchor(tick, clock.now() + startDelay, bpm());
     positionFloor = tick;
     history = [];
-    // Subscribers may call pause/stop/dispose, so the timer must exist before they run.
+    // Timer first: subscribers may call pause/stop/dispose.
     replaceSnapshot({ status: "playing" });
     startTimer();
     notify();
@@ -235,12 +226,12 @@ export function createTransport(options: TransportOptions): Transport {
 
     setLoop(loop) {
       if (disposed || loop === snapshot.loop) return;
-      // Applies at the first uncommitted tick: everything before it is already emitted and stays.
+      // Applies from the first uncommitted tick; earlier notes are already emitted.
       const at = scheduledUpTo;
       const next = compileLoop(loop);
       if (snapshot.status === "playing") supersedeSegment(at);
       if (next.tempo !== anchor.bpm) anchor = reanchor(anchor, at, next.tempo);
-      // The first loop starts at its own tick 0 rather than carrying a relative position over.
+      // The first loop starts at its own tick 0.
       if (compiled === null) originTick = at;
       else if (next.length !== compiled.length) originTick = resizedOrigin(originTick, at, compiled.length, next.length);
       compiled = next;

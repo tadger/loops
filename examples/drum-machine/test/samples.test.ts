@@ -25,7 +25,6 @@ describe("loadSamples", () => {
     expect(fetchFn.mock.calls.map(([url]) => url).sort()).toEqual(Object.values(SAMPLE_URLS).sort());
     expect(decodeAudioData).toHaveBeenCalledTimes(Object.keys(SAMPLE_URLS).length);
     expect(Object.keys(samples).sort()).toEqual(Object.keys(SAMPLE_URLS).sort());
-    // Decoded from this channel's own bytes, not another's.
     expect(samples.kick).toEqual(buffer("4"));
     expect(samples.sd).toEqual(buffer("2"));
     expect(samples.chh).toEqual(buffer("3"));

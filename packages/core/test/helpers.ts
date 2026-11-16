@@ -2,7 +2,6 @@ import fc from "fast-check";
 import { PPQN } from "../src/position";
 import type { Json, Loop, Note } from "../src/loop";
 
-/** Recursively freezes `x` (own properties of objects and arrays) and returns it. */
 export function deepFreeze<T>(x: T): T {
   if (typeof x === "object" && x !== null && !Object.isFrozen(x)) {
     Object.freeze(x);

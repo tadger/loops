@@ -6,7 +6,6 @@ import { createFakeEnv } from "../src/testing";
 import { createTransport } from "../src/transport";
 import type { NoteEvent } from "../src/transport";
 
-/** 1 bar of 4/4 at 120 bpm (384 ticks): kick at 0 and 192, snare at 96. */
 function makeLoop(): Loop {
   return {
     version: 1,
@@ -17,17 +16,17 @@ function makeLoop(): Loop {
   };
 }
 
-/** 2 bars of 4/4 at 120 bpm (768 ticks): kick at 0, snare at 192. */
 function makeTwoBarLoop(): Loop {
   return { version: 1, bars: 2, beatsPerBar: 4, tempo: 120, channels: { kick: [{ at: 0 }], snare: [{ at: 192 }] } };
 }
 
-/** Clock time of absolute tick `t` after `start()` at clock 0, at 120 bpm with the 50 ms start delay. */
+// Clock time of absolute tick `t` at 120 bpm, including the 50 ms start delay.
 const timeOf = (t: number) => 0.05 + (t * 60) / (120 * 96);
 
 const CHANNELS = ["kick", "snare", "hat"];
 
-/** A transport started at clock 0 with `loop` (if given), recording every event on every channel. */
+// B in the comments below is the first uncommitted tick when the edit lands:
+// run(0.3) -> floor(0.35 * 192) = 67; run(2.6) -> floor(2.65 * 192) = 508.
 function setup(loop: Loop | null = makeLoop()) {
   const env = createFakeEnv();
   const onError = vi.fn();
@@ -139,7 +138,7 @@ describe("transport live edit", () => {
 
   it("re-anchors a tempo change at scheduledUpTo without moving emitted times (inv. 6)", () => {
     const { env, transport, events } = setup();
-    env.run(0.3); // B = 67
+    env.run(0.3);
     const before = events.map((e) => ({ ...e }));
     expect(pairs(before)).toEqual([["kick", 0.05]]);
     transport.setLoop(setTempo(makeLoop(), 60));
@@ -153,7 +152,7 @@ describe("transport live edit", () => {
 
   it("moves the origin on a length change so the relative tick carries over (inv. 7)", () => {
     const { env, transport, events } = setup(makeTwoBarLoop());
-    env.run(2.6); // B = 508
+    env.run(2.6);
     transport.setLoop(resize(makeTwoBarLoop(), { bars: 1 }).loop);
     env.run(1.6);
     expect(events.map((e) => [e.channel, e.tick])).toEqual([
@@ -241,7 +240,7 @@ describe("transport live edit", () => {
     transport.setLoop(next);
     expect(transport.getSnapshot()).toEqual({ status: "stopped", loop: next });
     expect(transport.getPosition()).toEqual({ tick: 0 });
-    transport.start(); // at clock 1
+    transport.start();
     env.run(2.1);
     expect(events.map((e) => [e.channel, e.tick])).toEqual([
       ["kick", 0],
@@ -256,7 +255,7 @@ describe("transport live edit", () => {
     env.run(0.5); // B = 105
     transport.pause();
     const emitted = events.length;
-    transport.setLoop(resize(makeLoop(), { beatsPerBar: 1 }).loop); // 96 ticks, kick at 0
+    transport.setLoop(resize(makeLoop(), { beatsPerBar: 1 }).loop);
     expect(transport.getPosition()).toEqual({ tick: 105 % 96 });
     transport.start(); // resumes tick 105 at 0.55
     env.run(1);
@@ -284,7 +283,7 @@ describe("transport live edit", () => {
   describe("first loop", () => {
     it("arriving mid-play starts at its tick 0 at scheduledUpTo, at its own tempo", () => {
       const { env, transport, events } = setup(null);
-      env.run(1); // B = 201 at the default 120 bpm
+      env.run(1); // B = 201
       transport.setLoop(setTempo(makeLoop(), 60));
       env.run(2);
       const atB = timeOf(201);
@@ -311,7 +310,7 @@ describe("transport live edit", () => {
       transport.pause();
       transport.setLoop(makeLoop());
       expect(transport.getPosition()).toEqual({ tick: 0 });
-      transport.start(); // at clock 1
+      transport.start();
       env.run(0.9);
       expect(events.map((e) => [e.channel, e.tick])).toEqual([
         ["kick", 0],
@@ -324,7 +323,7 @@ describe("transport live edit", () => {
   describe("getPosition across edits", () => {
     it("keeps the old tempo for times before the re-anchor point", () => {
       const { env, transport } = setup();
-      env.run(0.3); // B = 67
+      env.run(0.3);
       transport.setLoop(setTempo(makeLoop(), 60));
       expect(transport.getPosition(0.3)).toEqual({ tick: 48 });
       expect(transport.getPosition(timeOf(60))).toEqual({ tick: 60 });
@@ -344,7 +343,7 @@ describe("transport live edit", () => {
 
     it("stays continuous across several edits within one lookahead", () => {
       const { env, transport } = setup();
-      env.run(0.3); // B = 67
+      env.run(0.3);
       transport.setLoop(setTempo(makeLoop(), 60));
       env.run(0.025); // B = 69
       transport.setLoop(setTempo(makeLoop(), 90));
@@ -356,7 +355,7 @@ describe("transport live edit", () => {
 
     it("clamps times long before the retained history to its start", () => {
       const { env, transport } = setup();
-      env.run(0.3); // B = 67
+      env.run(0.3);
       transport.setLoop(setTempo(makeLoop(), 60));
       env.run(3);
       transport.setLoop(setTempo(makeLoop(), 90));
@@ -365,7 +364,7 @@ describe("transport live edit", () => {
 
     it("is not disturbed by a later setLoop with the current loop", () => {
       const { env, transport } = setup();
-      env.run(0.3); // B = 67
+      env.run(0.3);
       const slow = setTempo(makeLoop(), 60);
       transport.setLoop(slow);
       env.run(3);

@@ -6,18 +6,15 @@ export interface FakeClock extends Clock {
 }
 
 export interface FakeTimer extends Timer {
-  /** Number of registered, not-yet-cancelled callbacks. */
   readonly activeCount: number;
-  /** `ms` of the most recent `every` call, or `null` if none yet. */
   readonly lastMs: number | null;
-  /** Calls every active callback once. */
   fire(): void;
 }
 
 export interface FakeEnv {
   clock: FakeClock;
   timer: FakeTimer;
-  /** Advances the clock by `seconds` in `step` increments, firing the timer after each. */
+  /** Advances `seconds` in `step` increments, firing the timer after each. */
   run(seconds: number, step?: number): void;
 }
 
@@ -52,7 +49,7 @@ export function createFakeEnv(): FakeEnv {
     },
     fire() {
       for (const entry of [...active]) {
-        // A callback may cancel another during this round; a cancelled one must not run.
+        // A callback may cancel another mid-round; a cancelled one must not run.
         if (active.has(entry)) entry.fn();
       }
     },
@@ -60,7 +57,7 @@ export function createFakeEnv(): FakeEnv {
 
   function run(seconds: number, step = 0.025): void {
     const start = now;
-    // Each time is computed as start + i * step, so no floating-point error accumulates.
+    // start + i * step rather than repeated addition, to avoid accumulating float error.
     const steps = Math.floor(seconds / step + 1e-9);
     for (let i = 1; i <= steps; i++) {
       now = start + i * step;
