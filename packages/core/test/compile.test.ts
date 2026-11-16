@@ -82,4 +82,21 @@ describe("compileLoop", () => {
     expect(compileLoop(resized).length).toBe(288);
     expect(compileLoop(l).length).toBe(384);
   });
+
+  it.each([0, -1, 0.5 / 4 / 96, Number.NaN, Number.POSITIVE_INFINITY, 1.0000001, Number.MAX_VALUE])(
+    "throws RangeError when the length is not a positive finite integer (bars %s)",
+    (bars) => {
+      expect(() => compileLoop(loop({ bars }))).toThrow(RangeError);
+    },
+  );
+
+  it("throws for a zero beatsPerBar and does not memoize the failure", () => {
+    const l = loop({ beatsPerBar: 0 });
+    expect(() => compileLoop(l)).toThrow(RangeError);
+    expect(() => compileLoop(l)).toThrow(RangeError);
+  });
+
+  it("accepts a fractional bar count that still gives an integer length", () => {
+    expect(compileLoop(loop({ bars: 0.5 })).length).toBe(192);
+  });
 });

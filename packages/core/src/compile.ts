@@ -15,9 +15,13 @@ const compiled = new WeakMap<Loop, CompiledLoop>();
 export function compileLoop(loop: Loop): CompiledLoop {
   let result = compiled.get(loop);
   if (result === undefined) {
+    const length = loopLength(loop);
+    if (!Number.isSafeInteger(length) || length <= 0) {
+      throw new RangeError(`loop length must be a positive integer number of ticks, got ${length}`);
+    }
     result = {
       loop,
-      length: loopLength(loop),
+      length,
       tempo: loop.tempo,
       channels: Object.entries(loop.channels).map(([id, notes]) => ({
         id,

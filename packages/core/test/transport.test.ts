@@ -461,4 +461,68 @@ describe("transport", () => {
     env.run(1.2);
     expect(ticks).toEqual([0, 192]);
   });
+
+  it.each([0, Number.NaN, Number.POSITIVE_INFINITY, -1])("rejects a zero-length loop (bars %s) and leaves the transport untouched", (bars) => {
+    const { env, transport } = setup();
+    const L = makeLoop();
+    transport.setLoop(L);
+    transport.start();
+    env.run(0.3);
+    const snapshot = transport.getSnapshot();
+    const position = transport.getPosition();
+    const listener = vi.fn();
+    transport.subscribe(listener);
+
+    expect(() => transport.setLoop({ ...L, bars })).toThrow(RangeError);
+    expect(transport.getSnapshot()).toBe(snapshot);
+    expect(transport.getPosition()).toEqual(position);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("keeps playing the same notes at the same times after a rejected setLoop", () => {
+    const run = (reject: boolean) => {
+      const { env, transport, events, record } = setup();
+      record("kick");
+      record("snare");
+      const L = makeLoop();
+      transport.setLoop(L);
+      transport.start();
+      env.run(0.3);
+      if (reject) expect(() => transport.setLoop({ ...L, bars: 0 })).toThrow(RangeError);
+      env.run(1.5);
+      return events.map((e) => [e.channel, e.tick, e.time]);
+    };
+    expect(run(true)).toEqual(run(false));
+  });
+
+  it("rejects a zero-length first loop without setting it", () => {
+    const { transport } = setup();
+    expect(() => transport.setLoop({ ...makeLoop(), bars: 0 })).toThrow(RangeError);
+    expect(transport.getSnapshot()).toEqual({ status: "stopped", loop: null });
+    expect(transport.getPosition()).toBeNull();
+    transport.setLoop(makeLoop());
+    expect(transport.getSnapshot().loop).not.toBeNull();
+  });
+
+  it.each([
+    ["lookahead", 0],
+    ["lookahead", -0.1],
+    ["lookahead", Number.NaN],
+    ["lookahead", Number.POSITIVE_INFINITY],
+    ["interval", 0],
+    ["interval", -1],
+    ["interval", Number.NaN],
+    ["interval", Number.POSITIVE_INFINITY],
+    ["startDelay", -0.01],
+    ["startDelay", Number.NaN],
+    ["startDelay", Number.POSITIVE_INFINITY],
+  ] as const)("createTransport rejects %s = %s with RangeError", (name, value) => {
+    const env = createFakeEnv();
+    expect(() => createTransport({ clock: env.clock, timer: env.timer, [name]: value })).toThrow(RangeError);
+  });
+
+  it("accepts a zero startDelay", () => {
+    const env = createFakeEnv();
+    expect(() => createTransport({ clock: env.clock, timer: env.timer, startDelay: 0 })).not.toThrow();
+  });
 });

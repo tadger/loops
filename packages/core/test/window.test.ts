@@ -136,4 +136,31 @@ describe("queryWindow", () => {
       ),
     );
   });
+
+  // Without the guard these loop forever (pass runs to Infinity), so they are the only tests that can hang the suite.
+  it("throws RangeError for a zero-length compiled loop", () => {
+    const zero = { ...beat, length: 0 };
+    expect(() => queryWindow(zero, 0, 10, 20)).toThrow(RangeError);
+  });
+
+  it("throws RangeError for a negative or non-finite length", () => {
+    for (const length of [-384, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => queryWindow({ ...beat, length }, 0, 10, 20)).toThrow(RangeError);
+    }
+  });
+
+  it.each([
+    [Number.NaN, 10],
+    [0, Number.NaN],
+    [0, Number.POSITIVE_INFINITY],
+    [Number.NEGATIVE_INFINITY, 0],
+    [0.5, 10],
+    [0, 10.5],
+  ])("throws RangeError for non-integer or non-finite bounds (%s, %s)", (from, to) => {
+    expect(() => queryWindow(beat, 0, from, to)).toThrow(RangeError);
+  });
+
+  it("rejects an infinite horizon before iterating", () => {
+    expect(() => queryWindow(beat, 0, 0, Number.POSITIVE_INFINITY)).toThrow(RangeError);
+  });
 });

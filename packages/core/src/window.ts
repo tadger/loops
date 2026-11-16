@@ -30,6 +30,12 @@ export function queryWindow(
   from: number,
   to: number,
 ): ScheduledNote[] {
+  if (!Number.isFinite(compiled.length) || compiled.length <= 0) {
+    throw new RangeError(`queryWindow: loop length must be a positive finite number, got ${compiled.length}`);
+  }
+  if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to)) {
+    throw new RangeError(`queryWindow: from (${from}) and to (${to}) must be integers`);
+  }
   if (!(from <= to)) throw new RangeError(`queryWindow: from (${from}) must not exceed to (${to})`);
   if (from === to) return [];
 

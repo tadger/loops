@@ -88,8 +88,17 @@ function resizedOrigin(originTick: number, at: number, oldLength: number, newLen
   return at - mod(mod(at - originTick, oldLength), newLength);
 }
 
+function assertOption(name: string, value: number, allowZero: boolean): void {
+  if (!Number.isFinite(value) || (allowZero ? value < 0 : value <= 0)) {
+    throw new RangeError(`${name} must be a finite number ${allowZero ? ">= 0" : "> 0"} (seconds), got ${value}`);
+  }
+}
+
 export function createTransport(options: TransportOptions): Transport {
   const { clock, timer, lookahead = 0.1, interval = 0.025, startDelay = 0.05 } = options;
+  assertOption("lookahead", lookahead, false);
+  assertOption("interval", interval, false);
+  assertOption("startDelay", startDelay, true);
   const onError = options.onError ?? ((error: unknown) => console.error(error));
 
   let disposed = false;
