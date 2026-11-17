@@ -32,10 +32,14 @@ input {
   gap: 0.375rem;
   overflow-x: auto;
 }
+.step-bar {
+  display: grid;
+  gap: 0.375rem;
+}
 .step-row,
 .lane {
   display: grid;
-  grid-template-columns: var(--step-label-width) repeat(16, minmax(var(--step-min), 1fr));
+  grid-template-columns: var(--step-label-width) repeat(var(--steps, 16), minmax(var(--step-min), 1fr));
   gap: var(--step-gap);
   align-items: center;
 }
