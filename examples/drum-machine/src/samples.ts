@@ -1,3 +1,4 @@
+import { DECAY_MAX } from "./step-data";
 import type { StepData } from "./step-data";
 
 export const SAMPLE_URLS: Record<string, string> = {
@@ -21,17 +22,47 @@ export async function loadSamples(
   return Object.fromEntries(entries);
 }
 
-export function playSample(ctx: BaseAudioContext, buffer: AudioBuffer, time: number, data: StepData): void {
+/** Longest fade at a sustained note's edges, so a gate never clicks. */
+const MAX_FADE = 0.01;
+
+export function playSample(
+  ctx: BaseAudioContext,
+  buffer: AudioBuffer,
+  time: number,
+  data: StepData,
+  opts: { duration?: number; output?: AudioNode } = {},
+): void {
+  const { duration, output = ctx.destination } = opts;
   const source = ctx.createBufferSource();
   const gainNode = ctx.createGain();
+  const param = gainNode.gain;
   source.buffer = buffer;
-  if (data.attack > 0) {
-    gainNode.gain.setValueAtTime(0, time);
-    gainNode.gain.linearRampToValueAtTime(data.gain, time + data.attack);
+  source.playbackRate.value = data.rate;
+
+  const decays = data.decay < DECAY_MAX;
+  let stopAt: number | undefined;
+  if (duration === undefined) {
+    param.setValueAtTime(data.gain, time);
+    if (decays) param.linearRampToValueAtTime(0, time + data.decay);
   } else {
-    gainNode.gain.setValueAtTime(data.gain, time);
+    const fade = Math.min(MAX_FADE, duration / 2);
+    param.setValueAtTime(0, time);
+    param.linearRampToValueAtTime(data.gain, time + fade);
+    if (!decays) {
+      param.setValueAtTime(data.gain, time + duration);
+      param.linearRampToValueAtTime(0, time + duration + fade);
+    } else if (data.decay <= duration) {
+      param.linearRampToValueAtTime(0, time + data.decay);
+    } else {
+      const slope = data.gain / (data.decay - fade);
+      param.linearRampToValueAtTime(data.gain - slope * (duration - fade), time + duration);
+      param.linearRampToValueAtTime(0, time + duration + fade);
+    }
+    stopAt = time + duration + fade;
   }
+
   source.connect(gainNode);
-  gainNode.connect(ctx.destination);
+  gainNode.connect(output);
   source.start(time);
+  if (stopAt !== undefined) source.stop(stopAt);
 }

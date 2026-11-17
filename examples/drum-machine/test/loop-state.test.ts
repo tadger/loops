@@ -51,9 +51,9 @@ describe("createInitialLoop", () => {
     expect(onSteps(loop, "clap")).toEqual([]);
   });
 
-  it("gives every note the default step data", () => {
+  it("stores no step data on the starting notes", () => {
     for (const notes of Object.values(loop.channels)) {
-      for (const note of notes) expect(note.data).toEqual({ gain: 1, attack: 0 });
+      for (const note of notes) expect(note).not.toHaveProperty("data");
     }
   });
 });
@@ -62,7 +62,7 @@ describe("toggleStep", () => {
   it("adds a note at the step's tick, then removes it", () => {
     const loop = createInitialLoop();
     const on = toggleStep(loop, "kick", 3);
-    expect(on.channels.kick).toContainEqual({ at: 3 * STEP_TICKS, data: { gain: 1, attack: 0 } });
+    expect(on.channels.kick).toContainEqual({ at: 3 * STEP_TICKS });
     expect(3 * STEP_TICKS).toBe(72);
     expect(isStepOn(on, "kick", 3)).toBe(true);
 
@@ -91,15 +91,33 @@ describe("getStepData", () => {
     const loop = setStepData(createInitialLoop(), "kick", 0, { gain: 0.3 });
     expect(getStepData(loop, "kick", 1)).toBeNull();
     expect(getStepData(loop, "cowbell", 0)).toBeNull();
-    expect(getStepData(loop, "kick", 0)).toEqual({ gain: 0.3, attack: 0 });
+    expect(getStepData(loop, "kick", 0)).toEqual({ gain: 0.3, decay: 2, rate: 1 });
   });
 });
 
 describe("setStepData", () => {
-  it("changes only that note, keeping the other field and other channels' references", () => {
+  const kick0 = (loop: Loop) => loop.channels.kick![0]!;
+
+  it("stores only the fields that differ from the defaults", () => {
+    const gained = setStepData(createInitialLoop(), "kick", 0, { gain: 0.8 });
+    expect(kick0(gained)).toEqual({ at: 0, data: { gain: 0.8 } });
+    const rated = setStepData(gained, "kick", 0, { rate: 0.55 });
+    expect(kick0(rated)).toEqual({ at: 0, data: { gain: 0.8, rate: 0.55 } });
+  });
+
+  it("removes a field set back to its default, and data when all are default", () => {
+    const edited = setStepData(setStepData(createInitialLoop(), "kick", 0, { gain: 0.8 }), "kick", 0, { rate: 0.55 });
+    const ungained = setStepData(edited, "kick", 0, { gain: 1 });
+    expect(kick0(ungained)).toEqual({ at: 0, data: { rate: 0.55 } });
+    const clean = setStepData(ungained, "kick", 0, { rate: 1 });
+    expect(kick0(clean)).toEqual({ at: 0 });
+    expect(clean.channels.kick![0]).not.toHaveProperty("data");
+  });
+
+  it("changes only that note, keeping other channels' references", () => {
     const loop = createInitialLoop();
-    const next = setStepData(setStepData(loop, "kick", 0, { attack: 0.05 }), "kick", 0, { gain: 0.3 });
-    expect(getStepData(next, "kick", 0)).toEqual({ gain: 0.3, attack: 0.05 });
+    const next = setStepData(setStepData(loop, "kick", 0, { decay: 0.3 }), "kick", 0, { gain: 0.3 });
+    expect(getStepData(next, "kick", 0)).toEqual({ gain: 0.3, decay: 0.3, rate: 1 });
     expect(next.channels.kick!.slice(1)).toEqual(loop.channels.kick!.slice(1));
     expect(next.channels.sd).toBe(loop.channels.sd);
     expect(next.channels.chh).toBe(loop.channels.chh);
@@ -107,23 +125,22 @@ describe("setStepData", () => {
   });
 
   it("clamps out-of-range patches", () => {
-    const loop = setStepData(createInitialLoop(), "kick", 0, { gain: 9, attack: 9 });
-    expect(getStepData(loop, "kick", 0)).toEqual({ gain: 1, attack: 0.1 });
-    const low = setStepData(loop, "kick", 0, { gain: -9, attack: -9 });
-    expect(getStepData(low, "kick", 0)).toEqual({ gain: 0, attack: 0 });
+    const loop = setStepData(createInitialLoop(), "kick", 0, { gain: 9, decay: 0, rate: 9 });
+    expect(getStepData(loop, "kick", 0)).toEqual({ gain: 1, decay: 0.02, rate: 2 });
+    const low = setStepData(loop, "kick", 0, { gain: -9, decay: 9, rate: 0 });
+    expect(getStepData(low, "kick", 0)).toEqual({ gain: 0, decay: 2, rate: 0.25 });
   });
 
-  it("writes exactly gain and attack, dropping other keys", () => {
+  it("rewrites data from the known fields only, dropping an old attack key", () => {
     const base = createInitialLoop();
-    const loop: Loop = { ...base, channels: { ...base.channels, clap: [{ at: 0, data: { gain: 0.5, extra: "x" } }] } };
-    const next = setStepData(loop, "clap", 0, { attack: 0.02 });
-    expect(next.channels.clap).toEqual([{ at: 0, data: { gain: 0.5, attack: 0.02 } }]);
+    const loop: Loop = { ...base, channels: { ...base.channels, clap: [{ at: 0, data: { gain: 0.5, attack: 0.05, extra: "x" } }] } };
+    expect(setStepData(loop, "clap", 0, { rate: 0.5 }).channels.clap).toEqual([{ at: 0, data: { gain: 0.5, rate: 0.5 } }]);
   });
 
   it("keeps the note's duration", () => {
     const base = createInitialLoop();
-    const loop: Loop = { ...base, channels: { ...base.channels, clap: [{ at: 0, duration: 12, data: { gain: 1, attack: 0 } }] } };
-    expect(setStepData(loop, "clap", 0, { gain: 0.3 }).channels.clap).toEqual([{ at: 0, duration: 12, data: { gain: 0.3, attack: 0 } }]);
+    const loop: Loop = { ...base, channels: { ...base.channels, clap: [{ at: 0, duration: 12 }] } };
+    expect(setStepData(loop, "clap", 0, { gain: 0.3 }).channels.clap).toEqual([{ at: 0, duration: 12, data: { gain: 0.3 } }]);
   });
 
   it("does not mutate a frozen loop", () => {
@@ -133,9 +150,9 @@ describe("setStepData", () => {
     expect(loop).toEqual(snapshot);
   });
 
-  it("applies the finite fields of a mixed patch", () => {
-    const next = setStepData(createInitialLoop(), "kick", 0, { gain: NaN, attack: 0.05 });
-    expect(getStepData(next, "kick", 0)).toEqual({ gain: 1, attack: 0.05 });
+  it("applies the finite fields of a mixed patch and ignores NaN", () => {
+    const next = setStepData(createInitialLoop(), "kick", 0, { gain: NaN, decay: 0.5 });
+    expect(getStepData(next, "kick", 0)).toEqual({ gain: 1, decay: 0.5, rate: 1 });
   });
 
   it("returns the same loop for an off step", () => {
@@ -149,7 +166,9 @@ describe("setStepData", () => {
     expect(setStepData(loop, "kick", 0, { gain: 1 })).toBe(loop);
     expect(setStepData(loop, "kick", 0, {})).toBe(loop);
     expect(setStepData(loop, "kick", 0, { gain: 5 })).toBe(loop);
-    expect(setStepData(loop, "kick", 0, { gain: NaN, attack: Infinity })).toBe(loop);
+    expect(setStepData(loop, "kick", 0, { gain: NaN, rate: Infinity })).toBe(loop);
+    const edited = setStepData(loop, "kick", 0, { gain: 0.8 });
+    expect(setStepData(edited, "kick", 0, { gain: 0.8 })).toBe(edited);
   });
 });
 
@@ -224,7 +243,7 @@ describe("step identity and nudge", () => {
     const loop = deepFreeze(twoBars([{ at: 50 }]));
     const off = toggleStep(loop, "kick", 2);
     expect(off.channels.kick).toEqual([]);
-    expect(toggleStep(off, "kick", 3).channels.kick).toEqual([{ at: 3 * STEP_TICKS, data: { gain: 1, attack: 0 } }]);
+    expect(toggleStep(off, "kick", 3).channels.kick).toEqual([{ at: 3 * STEP_TICKS }]);
   });
 
   it("reads the first of several notes on one step and toggling removes them all", () => {

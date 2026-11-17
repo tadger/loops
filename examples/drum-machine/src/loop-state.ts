@@ -9,7 +9,7 @@ export const STEP_TICKS = 24;
 export const CHANNELS = ["kick", "sd", "chh", "clap"] as const;
 
 export function createInitialLoop(): Loop {
-  const pattern = (p: string) => steps(p, { stepTicks: STEP_TICKS, data: DEFAULT_STEP_DATA });
+  const pattern = (p: string) => steps(p, { stepTicks: STEP_TICKS });
   return {
     version: 1,
     bars: 1,
@@ -56,7 +56,7 @@ export function toggleStep(loop: Loop, channel: string, step: number): Loop {
   if (noteAt(loop, channel, step) !== undefined) {
     return setChannel(loop, channel, notes.filter((n) => stepOf(loop, n.at) !== step));
   }
-  return setChannel(loop, channel, [...notes, { at: step * STEP_TICKS, data: DEFAULT_STEP_DATA }]);
+  return setChannel(loop, channel, [...notes, { at: step * STEP_TICKS }]);
 }
 
 export function isStepOn(loop: Loop, channel: string, step: number): boolean {
@@ -91,9 +91,16 @@ export function setStepData(loop: Loop, channel: string, step: number, patch: Pa
   const current = readStepData(note);
   const next = clampStepData({
     gain: Number.isFinite(patch.gain) ? patch.gain! : current.gain,
-    attack: Number.isFinite(patch.attack) ? patch.attack! : current.attack,
+    decay: Number.isFinite(patch.decay) ? patch.decay! : current.decay,
+    rate: Number.isFinite(patch.rate) ? patch.rate! : current.rate,
   });
-  if (next.gain === current.gain && next.attack === current.attack) return loop;
-  const notes = loop.channels[channel]!.map((n) => (n === note ? { ...n, data: next } : n));
-  return setChannel(loop, channel, notes);
+  if (next.gain === current.gain && next.decay === current.decay && next.rate === current.rate) return loop;
+  // Sparse: only non-default fields are stored, so a plain step carries no `data`.
+  const data: Record<string, number> = {};
+  for (const key of ["gain", "decay", "rate"] as const) {
+    if (next[key] !== DEFAULT_STEP_DATA[key]) data[key] = next[key];
+  }
+  const { data: _old, ...rest } = note;
+  const edited = Object.keys(data).length > 0 ? { ...rest, data } : rest;
+  return setChannel(loop, channel, notesOf(loop, channel).map((n) => (n === note ? edited : n)));
 }
