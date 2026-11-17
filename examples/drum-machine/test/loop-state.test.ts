@@ -199,11 +199,62 @@ describe("step identity and nudge", () => {
     expect(setNudge(last, "kick", 31, 11).channels.kick).toEqual([{ at: 755 }]);
   });
 
-  it("trims a wrapped note's duration to the loop end", () => {
-    const loop = twoBars([{ at: 0, duration: 60 }]);
-    const next = setNudge(loop, "kick", 0, -7);
-    expect(next.channels.kick).toEqual([{ at: 761, duration: 7 }]);
-    expect(parseLoop(next).ok).toBe(true);
+  describe("a sustained note", () => {
+    const valid = (loop: Loop) => expect(parseLoop(loop).ok).toBe(true);
+
+    it("cannot be nudged early from step 0, so it never wraps", () => {
+      const loop = twoBars([{ at: 0, duration: 95 }]);
+      expect(setNudge(loop, "kick", 0, -1)).toBe(loop);
+      expect(setNudge(loop, "kick", 0, -7)).toBe(loop);
+    });
+
+    it("moves late with its duration intact", () => {
+      const next = setNudge(twoBars([{ at: 0, duration: 95 }]), "kick", 0, 5);
+      expect(next.channels.kick).toEqual([{ at: 5, duration: 95 }]);
+      valid(next);
+    });
+
+    it("keeps its exact duration through a nudge there and back", () => {
+      let loop = twoBars([{ at: 0, duration: 95 }]);
+      for (const nudge of [-1, -3, 2, 5, 0, -3, 0]) {
+        loop = setNudge(loop, "kick", 0, nudge);
+        expect(loop.channels.kick![0]!.duration).toBe(95);
+        valid(loop);
+      }
+      expect(loop.channels.kick).toEqual([{ at: 0, duration: 95 }]);
+    });
+
+    it("stops late nudges where the note still fits the loop", () => {
+      const bass = setNudge(twoBars([{ at: 722, duration: 40 }]), "kick", 30, 11);
+      expect(bass.channels.kick).toEqual([{ at: 728, duration: 40 }]);
+      valid(bass);
+      const early = setNudge(bass, "kick", 30, -11);
+      expect(early.channels.kick).toEqual([{ at: 709, duration: 40 }]);
+
+      const string = twoBars([{ at: 746, duration: 22 }]);
+      expect(setNudge(string, "kick", 31, 11)).toBe(string);
+      expect(setNudge(string, "kick", 31, 3)).toBe(string);
+      const earlier = setNudge(string, "kick", 31, -4);
+      expect(earlier.channels.kick).toEqual([{ at: 740, duration: 22 }]);
+      valid(earlier);
+    });
+
+    it("stays well defined for an imported note outside its own range", () => {
+      const overrun = twoBars([{ at: 744, duration: 60 }]);
+      expect(setNudge(overrun, "kick", 31, 5)).toBe(overrun);
+      expect(setNudge(overrun, "kick", 31, -5)).toBe(overrun);
+
+      const wrapped = twoBars([{ at: 761, duration: 7 }]);
+      const back = setNudge(wrapped, "kick", 0, 3);
+      expect(back.channels.kick).toEqual([{ at: 3, duration: 7 }]);
+      valid(back);
+    });
+
+    it("leaves a one-shot free to wrap", () => {
+      const next = setNudge(twoBars([{ at: 0 }]), "kick", 0, -7);
+      expect(next.channels.kick).toEqual([{ at: 761 }]);
+      valid(next);
+    });
   });
 
   it("toggles off a nudged note and toggles on at the grid tick", () => {

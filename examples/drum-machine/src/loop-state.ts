@@ -55,13 +55,20 @@ export function getNudge(loop: Loop, channel: string, step: number): number | nu
 export function setNudge(loop: Loop, channel: string, step: number, nudge: number): Loop {
   const note = noteAt(loop, channel, step);
   if (note === undefined || !Number.isFinite(nudge)) return loop;
-  const clamped = Math.max(-MAX_NUDGE, Math.min(MAX_NUDGE, Math.round(nudge)));
   const length = loopLength(loop);
-  const at = (((step * STEP_TICKS + clamped) % length) + length) % length;
+  const base = step * STEP_TICKS;
+  let lo = -MAX_NUDGE;
+  let hi = MAX_NUDGE;
+  if (note.duration !== undefined) {
+    // A sustained note must fit the loop without wrapping; its duration is never trimmed.
+    lo = Math.max(lo, -base);
+    hi = Math.min(hi, length - note.duration - base);
+    if (lo > hi) return loop;
+  }
+  const clamped = Math.max(lo, Math.min(hi, Math.round(nudge)));
+  const at = (((base + clamped) % length) + length) % length;
   if (at === note.at) return loop;
-  const moved = { ...note, at };
-  if (moved.duration !== undefined && at + moved.duration > length) moved.duration = length - at;
-  return setChannel(loop, channel, notesOf(loop, channel).map((n) => (n === note ? moved : n)));
+  return setChannel(loop, channel, notesOf(loop, channel).map((n) => (n === note ? { ...note, at } : n)));
 }
 
 export function getStepData(loop: Loop, channel: string, step: number): StepData | null {
