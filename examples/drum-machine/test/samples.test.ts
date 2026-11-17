@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { CHANNELS } from "../src/loop-state";
 import { loadSamples, playSample, SAMPLE_URLS } from "../src/samples";
 import { DECAY_MAX } from "../src/step-data";
 import { fakeGain } from "./audio-param";
@@ -6,13 +7,9 @@ import { fakeGain } from "./audio-param";
 const buffer = (id: string) => ({ id }) as unknown as AudioBuffer;
 
 describe("SAMPLE_URLS", () => {
-  it("maps each channel to its wav", () => {
-    expect(SAMPLE_URLS).toEqual({
-      kick: "/samples/kick.wav",
-      sd: "/samples/sd.wav",
-      chh: "/samples/chh.wav",
-      clap: "/samples/clap.wav",
-    });
+  it("has one wav under /samples/ for each channel", () => {
+    expect(Object.keys(SAMPLE_URLS).sort()).toEqual([...CHANNELS].sort());
+    for (const url of Object.values(SAMPLE_URLS)) expect(url).toMatch(/^\/samples\/[a-z0-9]+\.wav$/);
   });
 });
 
@@ -28,18 +25,17 @@ describe("loadSamples", () => {
     expect(decodeAudioData).toHaveBeenCalledTimes(Object.keys(SAMPLE_URLS).length);
     expect(Object.keys(samples).sort()).toEqual(Object.keys(SAMPLE_URLS).sort());
     expect(samples.kick).toEqual(buffer("4"));
-    expect(samples.sd).toEqual(buffer("2"));
-    expect(samples.chh).toEqual(buffer("3"));
-    expect(samples.clap).toEqual(buffer("4"));
+    expect(samples.snare).toEqual(buffer("5"));
+    expect(samples.plong1).toEqual(buffer("6"));
   });
 });
 
 describe("loadSamples failures", () => {
   it("throws naming the url when a response is not ok", async () => {
-    const fetchFn = vi.fn(async (url: string) => ({ ok: url !== "/samples/sd.wav", arrayBuffer: async () => new ArrayBuffer(1) }) as Response);
+    const fetchFn = vi.fn(async (url: string) => ({ ok: url !== "/samples/snare.wav", arrayBuffer: async () => new ArrayBuffer(1) }) as Response);
     const decodeAudioData = vi.fn(async () => buffer("x"));
 
-    await expect(loadSamples({ decodeAudioData }, fetchFn as unknown as typeof fetch)).rejects.toThrow("failed to load /samples/sd.wav");
+    await expect(loadSamples({ decodeAudioData }, fetchFn as unknown as typeof fetch)).rejects.toThrow("failed to load /samples/snare.wav");
   });
 });
 

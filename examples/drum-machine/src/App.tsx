@@ -2,14 +2,14 @@ import { useState } from "react";
 import type { Loop } from "@loops/core";
 import { TransportProvider } from "@loops/react";
 import { inertClock, inertTimer } from "./audio";
+import { createBoomBapLoop } from "./beats";
 import { Machine } from "./Machine";
-import { createInitialLoop } from "./loop-state";
 import { loadLoop, saveLoop } from "./persistence";
 import { useAudioSetup } from "./use-audio-setup";
 
 function initialLoop(): Loop {
   const saved = loadLoop(localStorage);
-  return saved?.ok ? saved.loop : createInitialLoop();
+  return saved?.ok ? saved.loop : createBoomBapLoop();
 }
 
 export function App() {
@@ -24,6 +24,9 @@ export function App() {
   return (
     <main>
       <h1>loops drum machine</h1>
+      <p>
+        <a href="https://github.com/adamrenklint/dilla-boombap-demo">Beat after Adam Renklint&apos;s dilla boom-bap demo</a>
+      </p>
       <TransportProvider clock={audio?.clock ?? inertClock} timer={audio?.timer ?? inertTimer} loop={loop}>
         <Machine
           loop={loop}

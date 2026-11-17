@@ -1,7 +1,7 @@
 import { parseLoop, serializeLoop } from "@loops/core";
 import type { Loop, ParseLoopResult } from "@loops/core";
 
-export const STORAGE_KEY = "loops-demo:loop";
+export const STORAGE_KEY = "loops-demo:loop:v2";
 
 export interface KeyValueStore {
   getItem(k: string): string | null;

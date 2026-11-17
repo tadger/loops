@@ -2,8 +2,6 @@ import { parseLoop } from "@loops/core";
 import type { Loop } from "@loops/core";
 import { describe, expect, it } from "vitest";
 import {
-  CHANNELS,
-  createInitialLoop,
   getNudge,
   getStepData,
   isStepOn,
@@ -17,6 +15,7 @@ import {
   STEP_TICKS,
   toggleStep,
 } from "../src/loop-state";
+import { testLoop } from "./fixtures";
 
 function deepFreeze<T>(value: T): T {
   if (typeof value === "object" && value !== null && !Object.isFrozen(value)) {
@@ -26,41 +25,9 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-const onSteps = (loop: Loop, channel: string) =>
-  Array.from({ length: 16 }, (_, i) => i).filter((i) => isStepOn(loop, channel, i));
-
-describe("createInitialLoop", () => {
-  const loop = createInitialLoop();
-
-  it("is a valid loop", () => {
-    expect(parseLoop(loop).ok).toBe(true);
-  });
-
-  it("is one bar of four beats at 92 bpm", () => {
-    expect([loop.bars, loop.beatsPerBar, loop.tempo]).toEqual([1, 4, 92]);
-  });
-
-  it("has every channel", () => {
-    expect(Object.keys(loop.channels)).toEqual([...CHANNELS]);
-  });
-
-  it("plays the starting pattern", () => {
-    expect(onSteps(loop, "kick")).toEqual([0, 7, 10]);
-    expect(onSteps(loop, "sd")).toEqual([4, 12]);
-    expect(onSteps(loop, "chh")).toEqual([0, 2, 4, 6, 8, 10, 12, 14]);
-    expect(onSteps(loop, "clap")).toEqual([]);
-  });
-
-  it("stores no step data on the starting notes", () => {
-    for (const notes of Object.values(loop.channels)) {
-      for (const note of notes) expect(note).not.toHaveProperty("data");
-    }
-  });
-});
-
 describe("toggleStep", () => {
   it("adds a note at the step's tick, then removes it", () => {
-    const loop = createInitialLoop();
+    const loop = testLoop();
     const on = toggleStep(loop, "kick", 3);
     expect(on.channels.kick).toContainEqual({ at: 3 * STEP_TICKS });
     expect(3 * STEP_TICKS).toBe(72);
@@ -72,9 +39,9 @@ describe("toggleStep", () => {
   });
 
   it("does not mutate a frozen loop", () => {
-    const loop = deepFreeze(createInitialLoop());
+    const loop = deepFreeze(testLoop());
     const snapshot = structuredClone(loop);
-    expect(isStepOn(toggleStep(loop, "clap", 0), "clap", 0)).toBe(true);
+    expect(isStepOn(toggleStep(loop, "bass", 0), "bass", 0)).toBe(true);
     expect(isStepOn(toggleStep(loop, "kick", 0), "kick", 0)).toBe(false);
     expect(loop).toEqual(snapshot);
   });
@@ -82,13 +49,13 @@ describe("toggleStep", () => {
 
 describe("isStepOn", () => {
   it("is false for a channel the loop does not have", () => {
-    expect(isStepOn(createInitialLoop(), "cowbell", 0)).toBe(false);
+    expect(isStepOn(testLoop(), "cowbell", 0)).toBe(false);
   });
 });
 
 describe("getStepData", () => {
   it("is null for an off step and the note's data for a lit one", () => {
-    const loop = setStepData(createInitialLoop(), "kick", 0, { gain: 0.3 });
+    const loop = setStepData(testLoop(), "kick", 0, { gain: 0.3 });
     expect(getStepData(loop, "kick", 1)).toBeNull();
     expect(getStepData(loop, "cowbell", 0)).toBeNull();
     expect(getStepData(loop, "kick", 0)).toEqual({ gain: 0.3, decay: 2, rate: 1 });
@@ -99,14 +66,14 @@ describe("setStepData", () => {
   const kick0 = (loop: Loop) => loop.channels.kick![0]!;
 
   it("stores only the fields that differ from the defaults", () => {
-    const gained = setStepData(createInitialLoop(), "kick", 0, { gain: 0.8 });
+    const gained = setStepData(testLoop(), "kick", 0, { gain: 0.8 });
     expect(kick0(gained)).toEqual({ at: 0, data: { gain: 0.8 } });
     const rated = setStepData(gained, "kick", 0, { rate: 0.55 });
     expect(kick0(rated)).toEqual({ at: 0, data: { gain: 0.8, rate: 0.55 } });
   });
 
   it("removes a field set back to its default, and data when all are default", () => {
-    const edited = setStepData(setStepData(createInitialLoop(), "kick", 0, { gain: 0.8 }), "kick", 0, { rate: 0.55 });
+    const edited = setStepData(setStepData(testLoop(), "kick", 0, { gain: 0.8 }), "kick", 0, { rate: 0.55 });
     const ungained = setStepData(edited, "kick", 0, { gain: 1 });
     expect(kick0(ungained)).toEqual({ at: 0, data: { rate: 0.55 } });
     const clean = setStepData(ungained, "kick", 0, { rate: 1 });
@@ -115,54 +82,54 @@ describe("setStepData", () => {
   });
 
   it("changes only that note, keeping other channels' references", () => {
-    const loop = createInitialLoop();
+    const loop = testLoop();
     const next = setStepData(setStepData(loop, "kick", 0, { decay: 0.3 }), "kick", 0, { gain: 0.3 });
     expect(getStepData(next, "kick", 0)).toEqual({ gain: 0.3, decay: 0.3, rate: 1 });
     expect(next.channels.kick!.slice(1)).toEqual(loop.channels.kick!.slice(1));
-    expect(next.channels.sd).toBe(loop.channels.sd);
-    expect(next.channels.chh).toBe(loop.channels.chh);
-    expect(next.channels.clap).toBe(loop.channels.clap);
+    expect(next.channels.snare).toBe(loop.channels.snare);
+    expect(next.channels.hihat).toBe(loop.channels.hihat);
+    expect(next.channels.bass).toBe(loop.channels.bass);
   });
 
   it("clamps out-of-range patches", () => {
-    const loop = setStepData(createInitialLoop(), "kick", 0, { gain: 9, decay: 0, rate: 9 });
+    const loop = setStepData(testLoop(), "kick", 0, { gain: 9, decay: 0, rate: 9 });
     expect(getStepData(loop, "kick", 0)).toEqual({ gain: 1, decay: 0.02, rate: 2 });
     const low = setStepData(loop, "kick", 0, { gain: -9, decay: 9, rate: 0 });
     expect(getStepData(low, "kick", 0)).toEqual({ gain: 0, decay: 2, rate: 0.25 });
   });
 
   it("rewrites data from the known fields only, dropping an old attack key", () => {
-    const base = createInitialLoop();
-    const loop: Loop = { ...base, channels: { ...base.channels, clap: [{ at: 0, data: { gain: 0.5, attack: 0.05, extra: "x" } }] } };
-    expect(setStepData(loop, "clap", 0, { rate: 0.5 }).channels.clap).toEqual([{ at: 0, data: { gain: 0.5, rate: 0.5 } }]);
+    const base = testLoop();
+    const loop: Loop = { ...base, channels: { ...base.channels, bass: [{ at: 0, data: { gain: 0.5, attack: 0.05, extra: "x" } }] } };
+    expect(setStepData(loop, "bass", 0, { rate: 0.5 }).channels.bass).toEqual([{ at: 0, data: { gain: 0.5, rate: 0.5 } }]);
   });
 
   it("keeps the note's duration", () => {
-    const base = createInitialLoop();
-    const loop: Loop = { ...base, channels: { ...base.channels, clap: [{ at: 0, duration: 12 }] } };
-    expect(setStepData(loop, "clap", 0, { gain: 0.3 }).channels.clap).toEqual([{ at: 0, duration: 12, data: { gain: 0.3 } }]);
+    const base = testLoop();
+    const loop: Loop = { ...base, channels: { ...base.channels, bass: [{ at: 0, duration: 12 }] } };
+    expect(setStepData(loop, "bass", 0, { gain: 0.3 }).channels.bass).toEqual([{ at: 0, duration: 12, data: { gain: 0.3 } }]);
   });
 
   it("does not mutate a frozen loop", () => {
-    const loop = deepFreeze(createInitialLoop());
+    const loop = deepFreeze(testLoop());
     const snapshot = structuredClone(loop);
     expect(getStepData(setStepData(loop, "kick", 0, { gain: 0.2 }), "kick", 0)?.gain).toBe(0.2);
     expect(loop).toEqual(snapshot);
   });
 
   it("applies the finite fields of a mixed patch and ignores NaN", () => {
-    const next = setStepData(createInitialLoop(), "kick", 0, { gain: NaN, decay: 0.5 });
+    const next = setStepData(testLoop(), "kick", 0, { gain: NaN, decay: 0.5 });
     expect(getStepData(next, "kick", 0)).toEqual({ gain: 1, decay: 0.5, rate: 1 });
   });
 
   it("returns the same loop for an off step", () => {
-    const loop = createInitialLoop();
+    const loop = testLoop();
     expect(setStepData(loop, "kick", 1, { gain: 0.2 })).toBe(loop);
     expect(setStepData(loop, "cowbell", 0, { gain: 0.2 })).toBe(loop);
   });
 
   it("returns the same loop when nothing changes", () => {
-    const loop = createInitialLoop();
+    const loop = testLoop();
     expect(setStepData(loop, "kick", 0, { gain: 1 })).toBe(loop);
     expect(setStepData(loop, "kick", 0, {})).toBe(loop);
     expect(setStepData(loop, "kick", 0, { gain: 5 })).toBe(loop);

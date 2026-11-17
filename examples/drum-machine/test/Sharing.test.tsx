@@ -3,16 +3,17 @@ import { parseLoop } from "@loops/core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Sharing } from "../src/Sharing";
-import { createInitialLoop } from "../src/loop-state";
+import { testLoop } from "./fixtures";
 import { exportLoop } from "../src/persistence";
 
 afterEach(cleanup);
 
 function setup() {
-  const loop = createInitialLoop();
+  const loop = testLoop();
   const onImport = vi.fn();
-  render(<Sharing loop={loop} onImport={onImport} />);
-  return { loop, onImport };
+  const onReset = vi.fn();
+  render(<Sharing loop={loop} onImport={onImport} onReset={onReset} />);
+  return { loop, onImport, onReset };
 }
 
 const importWith = (text: string) => {
@@ -54,5 +55,11 @@ describe("Sharing", () => {
     const items = screen.getAllByRole("listitem");
     expect(items.some((li) => li.textContent!.startsWith("tempo"))).toBe(true);
     expect(onImport).not.toHaveBeenCalled();
+  });
+
+  it("resets to the beat through its button", () => {
+    const { onReset } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Reset to boom-bap" }));
+    expect(onReset).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,7 @@
 import { serializeLoop } from "@loops/core";
 import type { Loop } from "@loops/core";
 import { describe, expect, it } from "vitest";
-import { createInitialLoop } from "../src/loop-state";
+import { testLoop } from "./fixtures";
 import { exportLoop, importLoop, loadLoop, saveLoop, STORAGE_KEY } from "../src/persistence";
 import type { KeyValueStore } from "../src/persistence";
 
@@ -17,7 +17,7 @@ function memoryStore(initial: Record<string, string> = {}): KeyValueStore & { da
 describe("saveLoop / loadLoop", () => {
   it("round-trips the canonical JSON", () => {
     const store = memoryStore();
-    const loop = createInitialLoop();
+    const loop = testLoop();
     saveLoop(store, loop);
     expect(JSON.parse(store.data[STORAGE_KEY]!)).toEqual(serializeLoop(loop));
     expect(loadLoop(store)).toEqual({ ok: true, loop: serializeLoop(loop) });
@@ -35,20 +35,28 @@ describe("saveLoop / loadLoop", () => {
   });
 
   it("reports a stored loop that no longer validates", () => {
-    const stored = JSON.stringify({ ...createInitialLoop(), tempo: 0 });
+    const stored = JSON.stringify({ ...testLoop(), tempo: 0 });
     const result = loadLoop(memoryStore({ [STORAGE_KEY]: stored }));
     expect(result).toMatchObject({ ok: false, errors: [{ path: "tempo" }] });
   });
 });
 
+describe("STORAGE_KEY", () => {
+  it("is the v2 key, so a loop saved under the old kit's key is not loaded", () => {
+    expect(STORAGE_KEY).toBe("loops-demo:loop:v2");
+    const old = JSON.stringify(serializeLoop(testLoop()));
+    expect(loadLoop(memoryStore({ "loops-demo:loop": old }))).toBeNull();
+  });
+});
+
 describe("exportLoop / importLoop", () => {
   it("re-imports an export as the canonical loop", () => {
-    const loop = createInitialLoop();
+    const loop = testLoop();
     expect(importLoop(exportLoop(loop))).toEqual({ ok: true, loop: serializeLoop(loop) });
   });
 
   it("pretty-prints", () => {
-    expect(exportLoop(createInitialLoop())).toContain("\n");
+    expect(exportLoop(testLoop())).toContain("\n");
   });
 
   it("reports text that is not JSON", () => {
@@ -59,7 +67,7 @@ describe("exportLoop / importLoop", () => {
   });
 
   it("surfaces the path of an invalid field", () => {
-    const bad: Loop = { ...createInitialLoop(), tempo: 0 };
+    const bad: Loop = { ...testLoop(), tempo: 0 };
     expect(importLoop(JSON.stringify(bad))).toMatchObject({ ok: false, errors: [{ path: "tempo" }] });
   });
 });

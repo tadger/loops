@@ -3,6 +3,7 @@ import { setTempo } from "@loops/core";
 import type { Loop } from "@loops/core";
 import { usePlayhead, useTransport, useTransportState } from "@loops/react";
 import type { Audio } from "./audio";
+import { createBoomBapLoop } from "./beats";
 import { ChannelPlayer } from "./ChannelPlayer";
 import { Controls } from "./Controls";
 import { Sharing } from "./Sharing";
@@ -70,7 +71,7 @@ export function Machine({ loop, onEdit, audio, loading, startRequested, onStarte
         onParamChange={setLaneParam}
         onEdit={onEdit}
       />
-      <Sharing loop={loop} onImport={onEdit} />
+      <Sharing loop={loop} onImport={onEdit} onReset={() => onEdit(createBoomBapLoop())} />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { loopLength, setChannel, steps } from "@loops/core";
+import { loopLength, setChannel } from "@loops/core";
 import type { Loop } from "@loops/core";
 import { clampStepData, DEFAULT_STEP_DATA, readStepData } from "./step-data";
 import type { StepData } from "./step-data";
@@ -6,23 +6,7 @@ import type { StepData } from "./step-data";
 /** One sixteenth note. */
 export const STEP_TICKS = 24;
 
-export const CHANNELS = ["kick", "sd", "chh", "clap"] as const;
-
-export function createInitialLoop(): Loop {
-  const pattern = (p: string) => steps(p, { stepTicks: STEP_TICKS });
-  return {
-    version: 1,
-    bars: 1,
-    beatsPerBar: 4,
-    tempo: 92,
-    channels: {
-      kick: pattern("x------x --x-----"),
-      sd: pattern("----x--- ----x---"),
-      chh: pattern("x-x-x-x- x-x-x-x-"),
-      clap: [],
-    },
-  };
-}
+export const CHANNELS = ["kick", "snare", "hihat", "bass", "plong1", "plong2", "string1", "string2", "string3"] as const;
 
 export const MAX_NUDGE = 11;
 

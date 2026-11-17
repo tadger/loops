@@ -1,12 +1,10 @@
+import { CHANNELS } from "./loop-state";
 import { DECAY_MAX } from "./step-data";
 import type { StepData } from "./step-data";
 
-export const SAMPLE_URLS: Record<string, string> = {
-  kick: "/samples/kick.wav",
-  sd: "/samples/sd.wav",
-  chh: "/samples/chh.wav",
-  clap: "/samples/clap.wav",
-};
+export const SAMPLE_URLS: Record<string, string> = Object.fromEntries(
+  CHANNELS.map((channel) => [channel, `/samples/${channel}.wav`]),
+);
 
 export async function loadSamples(
   ctx: { decodeAudioData(b: ArrayBuffer): Promise<AudioBuffer> },

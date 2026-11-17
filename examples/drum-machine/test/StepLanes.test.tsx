@@ -5,19 +5,20 @@ import type { Loop } from "@loops/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StepLanes } from "../src/StepLanes";
 import type { StepLanesProps } from "../src/StepLanes";
-import { CHANNELS, createInitialLoop, getNudge, getStepData, isStepOn, setNudge, setStepData } from "../src/loop-state";
+import { CHANNELS, getNudge, getStepData, isStepOn, setNudge, setStepData } from "../src/loop-state";
+import { testLoop } from "./fixtures";
 
 afterEach(cleanup);
 
 const noop = () => {};
 const LIT = [0, 7, 10];
 const slider = (name: string) => screen.getByRole<HTMLInputElement>("slider", { name });
-const twoBars = (): Loop => ({ ...createInitialLoop(), bars: 2 });
+const twoBars = (): Loop => ({ ...testLoop(), bars: 2 });
 
 function lanes(props: Partial<StepLanesProps> = {}) {
   return (
     <StepLanes
-      loop={createInitialLoop()}
+      loop={testLoop()}
       channel="kick"
       param="gain"
       onChannelChange={noop}
@@ -47,7 +48,7 @@ describe("StepLanes", () => {
   });
 
   it("sets --steps from the loop's steps per bar, so a 3-beat loop keeps its columns", () => {
-    render(lanes({ loop: { ...createInitialLoop(), beatsPerBar: 3, bars: 2, channels: {} } }));
+    render(lanes({ loop: { ...testLoop(), beatsPerBar: 3, bars: 2, channels: {} } }));
 
     expect(screen.getAllByRole("slider")).toHaveLength(24);
     const rows = screen.getAllByRole("group", { name: /^Bar \d+ gain$/ });
@@ -95,7 +96,7 @@ describe("StepLanes", () => {
   });
 
   it("describes each value with aria-valuetext", () => {
-    let loop = setNudge(createInitialLoop(), "kick", 7, 2);
+    let loop = setNudge(testLoop(), "kick", 7, 2);
     loop = setStepData(loop, "kick", 7, { gain: 0.8, decay: 0.5, rate: 0.5 });
     const { rerender } = render(lanes({ loop, param: "timing" }));
     expect(slider("kick step 8 timing").getAttribute("aria-valuetext")).toBe("2 ticks late");
@@ -109,7 +110,7 @@ describe("StepLanes", () => {
   });
 
   it("clamps an imported tie's nudge into the slider's range", () => {
-    const loop: Loop = { ...createInitialLoop(), channels: { kick: [{ at: 36 }] } };
+    const loop: Loop = { ...testLoop(), channels: { kick: [{ at: 36 }] } };
     render(lanes({ loop, param: "timing" }));
 
     const tie = slider("kick step 3 timing");
@@ -119,7 +120,7 @@ describe("StepLanes", () => {
 
   it("passes the edited loop to onEdit when a lit step's slider moves", () => {
     const onEdit = vi.fn();
-    const loop = createInitialLoop();
+    const loop = testLoop();
     render(lanes({ loop, onEdit }));
 
     fireEvent.change(slider("kick step 8 gain"), { target: { value: "0.25" } });
@@ -127,16 +128,16 @@ describe("StepLanes", () => {
     expect(onEdit).toHaveBeenCalledOnce();
     const edited = onEdit.mock.calls[0]![0] as Loop;
     expect(getStepData(edited, "kick", 7)).toEqual({ gain: 0.25, decay: 2, rate: 1 });
-    expect(edited.channels.sd).toBe(loop.channels.sd);
+    expect(edited.channels.snare).toBe(loop.channels.snare);
   });
 
   it("edits the selected parameter and channel", () => {
     const onEdit = vi.fn();
-    render(lanes({ channel: "sd", param: "timing", onEdit }));
+    render(lanes({ channel: "snare", param: "timing", onEdit }));
 
-    fireEvent.change(slider("sd step 5 timing"), { target: { value: "-6" } });
+    fireEvent.change(slider("snare step 5 timing"), { target: { value: "-6" } });
 
-    expect(getNudge(onEdit.mock.calls[0]![0] as Loop, "sd", 4)).toBe(-6);
+    expect(getNudge(onEdit.mock.calls[0]![0] as Loop, "snare", 4)).toBe(-6);
   });
 
   it("picks the channel through a labelled select listing exactly the kit", () => {
@@ -145,18 +146,18 @@ describe("StepLanes", () => {
 
     const select = screen.getByLabelText<HTMLSelectElement>("Lane for");
     expect([...select.options].map((o) => o.value)).toEqual([...CHANNELS]);
-    fireEvent.change(select, { target: { value: "sd" } });
-    expect(onChannelChange).toHaveBeenCalledExactlyOnceWith("sd");
+    fireEvent.change(select, { target: { value: "snare" } });
+    expect(onChannelChange).toHaveBeenCalledExactlyOnceWith("snare");
 
-    rerender(lanes({ channel: "sd" }));
-    expect(select.value).toBe("sd");
-    // sd is lit at steps 5 and 13
-    expect(slider("sd step 5 gain").disabled).toBe(false);
-    expect(slider("sd step 1 gain").disabled).toBe(true);
+    rerender(lanes({ channel: "snare" }));
+    expect(select.value).toBe("snare");
+    // snare is lit at steps 5 and 13
+    expect(slider("snare step 5 gain").disabled).toBe(false);
+    expect(slider("snare step 1 gain").disabled).toBe(true);
   });
 
   it("lists only kit channels even when the loop has others", () => {
-    const loop: Loop = { ...createInitialLoop(), channels: { ...createInitialLoop().channels, cowbell: [{ at: 0 }] } };
+    const loop: Loop = { ...testLoop(), channels: { ...testLoop().channels, cowbell: [{ at: 0 }] } };
     render(lanes({ loop }));
 
     expect([...screen.getByLabelText<HTMLSelectElement>("Lane for").options].map((o) => o.value)).toEqual([...CHANNELS]);
@@ -164,7 +165,7 @@ describe("StepLanes", () => {
 
   it("renders defaults for garbage, null or missing data without throwing", () => {
     const loop = {
-      ...createInitialLoop(),
+      ...testLoop(),
       channels: {
         kick: [
           { at: 0, data: "loud" },
@@ -184,7 +185,7 @@ describe("StepLanes", () => {
   });
 
   it("reads an old-format loop with only gain, defaulting the rest", () => {
-    const loop = { ...createInitialLoop(), channels: { kick: [{ at: 0, data: { gain: 0.5 } }] } } as Loop;
+    const loop = { ...testLoop(), channels: { kick: [{ at: 0, data: { gain: 0.5 } }] } } as Loop;
     const { rerender } = render(lanes({ loop }));
 
     expect(slider("kick step 1 gain").value).toBe("0.5");
@@ -211,7 +212,7 @@ describe("StepLanes", () => {
     }
 
     it("applies consecutive edits across parameters without touching other steps", () => {
-      const before = createInitialLoop();
+      const before = testLoop();
       let latest = before;
       render(<Harness initial={before} onLoop={(l) => (latest = l)} />);
 
@@ -225,28 +226,28 @@ describe("StepLanes", () => {
       expect(getStepData(latest, "kick", 0)).toEqual({ gain: 0.3, decay: 2, rate: 1 });
       expect(getStepData(latest, "kick", 7)).toEqual({ gain: 0.6, decay: 0.4, rate: 1 });
       expect(getNudge(latest, "kick", 10)).toBe(3);
-      expect(latest.channels.sd).toEqual(before.channels.sd);
+      expect(latest.channels.snare).toEqual(before.channels.snare);
       expect(slider("kick step 11 timing").value).toBe("3");
       expect(slider("kick step 11 timing").getAttribute("aria-valuetext")).toBe("3 ticks late");
     });
 
     it("keeps no state of one channel when switching to another", () => {
-      let latest = createInitialLoop();
+      let latest = testLoop();
       render(<Harness initial={latest} onLoop={(l) => (latest = l)} />);
 
       fireEvent.change(slider("kick step 8 gain"), { target: { value: "0.2" } });
-      fireEvent.change(screen.getByLabelText("Lane for"), { target: { value: "sd" } });
+      fireEvent.change(screen.getByLabelText("Lane for"), { target: { value: "snare" } });
 
       expect(screen.queryByRole("slider", { name: /^kick step/ })).toBeNull();
-      expect(slider("sd step 5 gain").value).toBe("1");
-      expect(slider("sd step 5 gain").disabled).toBe(false);
-      expect(slider("sd step 8 gain").disabled).toBe(true);
-      expect(getStepData(latest, "sd", 4)).toEqual({ gain: 1, decay: 2, rate: 1 });
+      expect(slider("snare step 5 gain").value).toBe("1");
+      expect(slider("snare step 5 gain").disabled).toBe(false);
+      expect(slider("snare step 8 gain").disabled).toBe(true);
+      expect(getStepData(latest, "snare", 4)).toEqual({ gain: 1, decay: 2, rate: 1 });
     });
   });
 
   it("cannot turn on or change a step that is off", () => {
-    let latest = createInitialLoop();
+    let latest = testLoop();
     const before = latest;
     const onEdit = (loop: Loop) => (latest = loop);
     const { rerender } = render(lanes({ loop: before, onEdit }));

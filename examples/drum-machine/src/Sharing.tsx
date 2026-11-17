@@ -2,7 +2,13 @@ import { useRef, useState } from "react";
 import type { Diagnostic, Loop } from "@loops/core";
 import { exportLoop, importLoop } from "./persistence";
 
-export function Sharing({ loop, onImport }: { loop: Loop; onImport(loop: Loop): void }) {
+interface SharingProps {
+  loop: Loop;
+  onImport(loop: Loop): void;
+  onReset(): void;
+}
+
+export function Sharing({ loop, onImport, onReset }: SharingProps) {
   const [exported, setExported] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<Diagnostic[]>([]);
@@ -24,6 +30,9 @@ export function Sharing({ loop, onImport }: { loop: Loop; onImport(loop: Loop): 
       <div>
         <button type="button" onClick={() => setExported(exportLoop(loop))}>
           Export
+        </button>
+        <button type="button" onClick={onReset}>
+          Reset to boom-bap
         </button>
         {exported !== null && <textarea readOnly aria-label="Exported loop" value={exported} rows={10} />}
       </div>
