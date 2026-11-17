@@ -1,6 +1,10 @@
 :root {
   font-family: system-ui, sans-serif;
   color-scheme: light dark;
+  /* Shared by the step grid and the dynamics lanes so their columns line up. */
+  --step-label-width: 3.5rem;
+  --step-min: 1.5rem;
+  --step-gap: 0.25rem;
 }
 main {
   max-width: 60rem;
@@ -28,10 +32,11 @@ input {
   gap: 0.375rem;
   overflow-x: auto;
 }
-.step-row {
+.step-row,
+.lane {
   display: grid;
-  grid-template-columns: 3.5rem repeat(16, minmax(1.5rem, 1fr));
-  gap: 0.25rem;
+  grid-template-columns: var(--step-label-width) repeat(16, minmax(var(--step-min), 1fr));
+  gap: var(--step-gap);
   align-items: center;
 }
 .step {
@@ -51,6 +56,28 @@ input {
 }
 .step[data-playhead] {
   box-shadow: 0 0 0 3px #f59e0b;
+}
+.dynamics {
+  margin-top: 1rem;
+  /* Room for the focus ring, which the scroll container would clip; block only, to keep columns aligned. */
+  padding-block: 0.25rem;
+  overflow-x: auto;
+}
+.dynamics-picker {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.lane input[type="range"] {
+  /* Vertical so each slider fits its one-step-wide column. */
+  writing-mode: vertical-lr;
+  direction: rtl;
+  inline-size: var(--step-min);
+  block-size: 5rem;
+  min-inline-size: 0;
+  margin: 0;
+  justify-self: center;
 }
 .sharing {
   display: grid;
