@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createAudioClock, createWorkerTimer, ensureRunning } from "@loops/web-audio";
-import type { Audio } from "./audio";
+import { createMasterBus, type Audio } from "./audio";
 import { loadSamples } from "./samples";
 
 export function useAudioSetup() {
@@ -17,7 +17,13 @@ export function useAudioSetup() {
       const ctx = new AudioContext();
       await ensureRunning(ctx);
       const samples = await loadSamples(ctx, fetch);
-      setAudio({ ctx, samples, clock: createAudioClock(ctx), timer: createWorkerTimer() });
+      setAudio({
+        ctx,
+        samples,
+        clock: createAudioClock(ctx),
+        timer: createWorkerTimer(),
+        output: createMasterBus(ctx),
+      });
       setStartRequested(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
