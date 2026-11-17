@@ -41,7 +41,7 @@ input {
 }
 .step {
   aspect-ratio: 1;
-  min-height: 1.5rem;
+  min-height: var(--step-min);
   border: 1px solid #888;
   border-radius: 4px;
   background: transparent;
@@ -60,7 +60,7 @@ input {
 .dynamics {
   margin-top: 1rem;
   /* Room for the focus ring, which the scroll container would clip; block only, to keep columns aligned. */
-  padding-block: 0.25rem;
+  padding-block: 0.5rem;
   overflow-x: auto;
 }
 .dynamics-picker {
@@ -70,12 +70,12 @@ input {
   margin-bottom: 0.5rem;
 }
 .lane input[type="range"] {
-  /* Vertical so each slider fits its one-step-wide column. */
+  /* Vertical so each slider fits its one-step-wide column; needs Chrome 124+/Firefox 128+. */
   writing-mode: vertical-lr;
   direction: rtl;
-  inline-size: var(--step-min);
-  block-size: 5rem;
-  min-inline-size: 0;
+  /* Physical: logical sizes swap axes under vertical writing modes. */
+  width: var(--step-min);
+  height: 5rem;
   margin: 0;
   justify-self: center;
 }

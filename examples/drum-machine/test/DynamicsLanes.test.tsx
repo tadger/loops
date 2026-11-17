@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import type { Loop } from "@loops/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DynamicsLanes } from "../src/DynamicsLanes";
-import { createInitialLoop, getStepData, setStepData } from "../src/loop-state";
+import type { DynamicsLanesProps } from "../src/DynamicsLanes";
+import { createInitialLoop, getStepData, isStepOn, setStepData } from "../src/loop-state";
 
 afterEach(cleanup);
 
@@ -121,17 +122,12 @@ describe("DynamicsLanes", () => {
 
   it("applies consecutive edits through setStepData without touching other steps", () => {
     let latest = createInitialLoop();
+    let change: DynamicsLanesProps["onChange"] = noop;
     function Wrapper() {
       const [loop, setLoop] = useState(latest);
       latest = loop;
-      return (
-        <DynamicsLanes
-          loop={loop}
-          channel="kick"
-          onChannelChange={noop}
-          onChange={(channel, step, patch) => setLoop(setStepData(loop, channel, step, patch))}
-        />
-      );
+      change = (channel, step, patch) => setLoop(setStepData(loop, channel, step, patch));
+      return <DynamicsLanes loop={loop} channel="kick" onChannelChange={noop} onChange={change} />;
     }
     const before = createInitialLoop();
     render(<Wrapper />);
@@ -148,5 +144,26 @@ describe("DynamicsLanes", () => {
     expect(latest.channels.chh).toEqual(before.channels.chh);
     expect(slider("kick step 8 gain").value).toBe("0.6");
     expect(slider("kick step 8 attack").value).toBe("40");
+  });
+
+  it("cannot turn on or change a step that is off", () => {
+    let latest = createInitialLoop();
+    let change: DynamicsLanesProps["onChange"] = noop;
+    function Wrapper() {
+      const [loop, setLoop] = useState(latest);
+      latest = loop;
+      change = (channel, step, patch) => setLoop(setStepData(loop, channel, step, patch));
+      return <DynamicsLanes loop={loop} channel="kick" onChannelChange={noop} onChange={change} />;
+    }
+    render(<Wrapper />);
+    const before = latest;
+
+    // Step 2 is off. jsdom delivers the event despite `disabled`, so setStepData must be the guard.
+    fireEvent.change(slider("kick step 2 gain"), { target: { value: "0.5" } });
+    act(() => change("kick", 1, { gain: 0.5, attack: 0.02 }));
+
+    expect(latest).toBe(before);
+    expect(isStepOn(latest, "kick", 1)).toBe(false);
+    expect(slider("kick step 2 gain").disabled).toBe(true);
   });
 });
