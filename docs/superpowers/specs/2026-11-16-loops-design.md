@@ -243,7 +243,7 @@ Behavior:
 ## 10. Demo: `examples/drum-machine`
 
 Vite + React. Purpose: prove the API and the live-edit story.
-- 16-step grid × 4 channels (kick, snare, closed hat, clap). Sounds are the author's supplied WAV samples (`kick`, `sd`, `chh`, `clap` from `~/Downloads/samples`, 44.1 kHz mono 16-bit), loaded and played by the demo itself; sample loading stays out of the library. Redistribution rights for the samples must be confirmed by the author before the repo is published.
+- Step grid (one 16-step row per bar) × nine channels of the boom-bap kit (`kick`, `snare`, `hihat`, `bass`, `plong1`, `plong2`, `string1`, `string2`, `string3`). The sounds come from adamrenklint/dilla-boombap-demo and are loaded and played by the demo itself; sample loading stays out of the library. The author chose to commit the WAVs; their redistribution rights are not confirmed.
 - Play / stop, tempo slider (edits `loop.tempo`, so exercises tempo re-anchoring).
 - Clicking a step while playing toggles it via `toggleNote` → new loop → `setLoop`; the change is heard on the next pass with no glitches.
 - Playhead highlight via `usePlayhead`.

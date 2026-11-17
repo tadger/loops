@@ -55,7 +55,7 @@ Inputs the spec implies but no happy-path test covers; each has a pinning test i
   - `getNudge` returns 2 for `at` 50, null for an off step.
   - `setNudge(loop, "kick", 2, -3)` moves that note to `at` 45; the same loop reference comes back when the nudge is unchanged or the step is off.
   - `setNudge` clamps to ±11 and rounds to an integer: `setNudge(…, 99)` gives nudge 11; `NaN` leaves the loop unchanged.
-  - Wrap: `setNudge(loop, "kick", 0, -7)` on a 768-tick loop gives `at` 761. `setNudge(loop, "kick", 31, 11)` (step 31 is `at` 744) gives `at` 755, no wrap. A step-0 note with `duration` 60 nudged −7 lands at 761 with `duration` trimmed to 7 (`at + duration` equals the loop length); the result still passes `parseLoop`.
+  - Wrap: `setNudge(loop, "kick", 0, -7)` on a 768-tick loop gives `at` 761. `setNudge(loop, "kick", 31, 11)` (step 31 is `at` 744) gives `at` 755, no wrap. A step-0 note with `duration` 60 cannot be nudged early (the loop is returned unchanged); sustained notes are never trimmed, and their nudge is limited to where `at + duration` fits the loop.
   - `toggleStep` on a step whose note is nudged (`at` 50 → step 2) turns it off and removes it; toggling an off step adds a note at `step * 24`.
   - Two notes at `at` 48 and 50 (same step 2): `getNudge` reads the first; `toggleStep` removes both.
   - A 1-bar and a 3-beat loop: `stepCount` is 16 and 12.
@@ -63,7 +63,7 @@ Inputs the spec implies but no happy-path test covers; each has a pinning test i
 
 - [ ] **Step 2: Run to confirm failure**: `pnpm test examples/drum-machine/test/loop-state.test.ts` — fails on missing exports.
 
-- [ ] **Step 3: Implement** the functions above. `setNudge` computes `at = ((step * STEP_TICKS + nudge) % length + length) % length` with `length = loopLength(loop)`, then trims `duration` to `length − at` when it would overflow, and writes via `setChannel`. Keep `noteAt` as the single "first note whose step matches" lookup.
+- [ ] **Step 3: Implement** the functions above. `setNudge` computes `at = ((step * STEP_TICKS + nudge) % length + length) % length` with `length = loopLength(loop)`, and writes via `setChannel`. A note with `duration` instead clamps the nudge to the range where `at >= 0` and `at + duration <= length`; `duration` is never changed. Keep `noteAt` as the single "first note whose step matches" lookup.
 
 - [ ] **Step 4: Run all tests and typecheck**; both green.
 

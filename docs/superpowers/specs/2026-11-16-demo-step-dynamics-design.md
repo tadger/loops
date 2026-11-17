@@ -1,6 +1,8 @@
 # Demo: per-step dynamics and component extraction — design
 
-Status: **draft for approval** · Date: 2026-11-16 · Extends §10 of `2026-11-16-loops-design.md` · Demo only (`examples/drum-machine`); no library changes.
+Status: **approved, implemented** · Date: 2026-11-16 · Extends §10 of `2026-11-16-loops-design.md` · Demo only (`examples/drum-machine`); no library changes.
+
+The attack lane is superseded by `2026-11-17-demo-boombap-design.md` (gain remains; attack became decay).
 
 ## Intent
 
