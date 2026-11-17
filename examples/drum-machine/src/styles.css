@@ -1,7 +1,7 @@
 :root {
   font-family: system-ui, sans-serif;
   color-scheme: light dark;
-  /* Shared by the step grid and the dynamics lanes so their columns line up. */
+  /* Shared by the step grid and the parameter lanes so their columns line up. */
   --step-label-width: 3.5rem;
   --step-min: 1.5rem;
   --step-gap: 0.25rem;
@@ -61,17 +61,23 @@ input {
 .step[data-playhead] {
   box-shadow: 0 0 0 3px #f59e0b;
 }
-.dynamics {
+.lanes {
+  display: grid;
+  gap: 0.5rem;
   margin-top: 1rem;
   /* Room for the focus ring, which the scroll container would clip; block only, to keep columns aligned. */
   padding-block: 0.5rem;
   overflow-x: auto;
 }
-.dynamics-picker {
+.lane-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.lane-pickers label {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  margin-bottom: 0.5rem;
 }
 .lane input[type="range"] {
   /* Vertical so each slider fits its one-step-wide column; needs Chrome 124+/Firefox 128+. */

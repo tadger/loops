@@ -5,10 +5,11 @@ import { usePlayhead, useTransport, useTransportState } from "@loops/react";
 import type { Audio } from "./audio";
 import { ChannelPlayer } from "./ChannelPlayer";
 import { Controls } from "./Controls";
-import { DynamicsLanes } from "./DynamicsLanes";
 import { Sharing } from "./Sharing";
 import { StepGrid } from "./StepGrid";
-import { CHANNELS, STEP_TICKS, setStepData, toggleStep } from "./loop-state";
+import { StepLanes } from "./StepLanes";
+import { CHANNELS, STEP_TICKS, toggleStep } from "./loop-state";
+import type { StepParam } from "./params";
 
 interface MachineProps {
   loop: Loop;
@@ -26,6 +27,7 @@ export function Machine({ loop, onEdit, audio, loading, startRequested, onStarte
   const loopApplied = useTransportState((s) => s.loop !== null);
   const [step, setStep] = useState<number | null>(null);
   const [laneChannel, setLaneChannel] = useState<string>(CHANNELS[0]);
+  const [laneParam, setLaneParam] = useState<StepParam["id"]>("gain");
 
   usePlayhead((position) => setStep(position === null ? null : Math.floor(position.tick / STEP_TICKS)));
 
@@ -60,11 +62,13 @@ export function Machine({ loop, onEdit, audio, loading, startRequested, onStarte
         onToggle={(channel, i) => onEdit(toggleStep(loop, channel, i))}
         playheadStep={status === "stopped" ? null : step}
       />
-      <DynamicsLanes
+      <StepLanes
         loop={loop}
         channel={laneChannel}
+        param={laneParam}
         onChannelChange={setLaneChannel}
-        onChange={(channel, i, patch) => onEdit(setStepData(loop, channel, i, patch))}
+        onParamChange={setLaneParam}
+        onEdit={onEdit}
       />
       <Sharing loop={loop} onImport={onEdit} />
     </>
