@@ -25,13 +25,17 @@ export function Sharing({ loop, onImport, onReset }: SharingProps) {
     }
   };
 
+  const doReset = () => {
+    if (window.confirm("Replace your loop with the boom-bap beat?")) onReset();
+  };
+
   return (
     <section className="sharing">
       <div>
         <button type="button" onClick={() => setExported(exportLoop(loop))}>
           Export
         </button>
-        <button type="button" onClick={onReset}>
+        <button type="button" onClick={doReset}>
           Reset to boom-bap
         </button>
         {exported !== null && <textarea readOnly aria-label="Exported loop" value={exported} rows={10} />}

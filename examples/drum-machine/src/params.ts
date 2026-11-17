@@ -58,9 +58,10 @@ export const STEP_PARAMS: readonly StepParam[] = [
       return data === null ? null : toSemitones(data.rate);
     },
     // Clamped before converting: an extreme value would overflow 2**x to Infinity and be ignored.
+    // Rounded so the exported JSON stays readable; 0 st stays exactly 1, the sparse default.
     set: (loop, channel, step, value) =>
       setStepData(loop, channel, step, {
-        rate: 2 ** (clamp(value, toSemitones(RATE_MIN), toSemitones(RATE_MAX)) / 12),
+        rate: Math.round(2 ** (clamp(value, toSemitones(RATE_MIN), toSemitones(RATE_MAX)) / 12) * 1e4) / 1e4,
       }),
     format: (value) => {
       const text = Math.abs(value).toFixed(1);

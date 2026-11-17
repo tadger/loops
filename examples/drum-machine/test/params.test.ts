@@ -86,7 +86,7 @@ describe("STEP_PARAMS", () => {
       expect(getStepData(pitch.set(loop, "kick", ON, -12), "kick", ON)!.rate).toBe(0.5);
       expect(getStepData(pitch.set(loop, "kick", ON, 12), "kick", ON)!.rate).toBe(2);
       const up = pitch.set(loop, "kick", ON, 7);
-      expect(pitch.get(up, "kick", ON)).toBeCloseTo(7, 10);
+      expect(pitch.get(up, "kick", ON)).toBeCloseTo(7, 3);
     });
 
     it("setting 0 st stores rate 1, which is the default and so leaves no data", () => {
@@ -99,6 +99,21 @@ describe("STEP_PARAMS", () => {
     it("reads an imported rate of 0.55 as about −10.35 st", () => {
       const loop = setStepData(testLoop(), "kick", ON, { rate: 0.55 });
       expect(pitch.get(loop, "kick", ON)).toBeCloseTo(-10.35, 2);
+    });
+
+    it("rounds the stored rate to 4 decimals and still reads within 0.05 st", () => {
+      const rate = getStepData(pitch.set(testLoop(), "kick", ON, -10.4), "kick", ON)!.rate;
+      expect(rate).toBe(Math.round(rate * 1e4) / 1e4);
+      expect(String(rate).split(".")[1]!.length).toBeLessThanOrEqual(4);
+      const loop = pitch.set(testLoop(), "kick", ON, -10.4);
+      expect(Math.abs(pitch.get(loop, "kick", ON)! + 10.4)).toBeLessThan(0.05);
+    });
+
+    it("stores the range ends and 0 st exactly", () => {
+      const loop = testLoop();
+      expect(getStepData(pitch.set(loop, "kick", ON, -24), "kick", ON)!.rate).toBe(0.25);
+      expect(getStepData(pitch.set(loop, "kick", ON, 12), "kick", ON)!.rate).toBe(2);
+      expect(pitch.set(pitch.set(loop, "kick", ON, -5), "kick", ON, 0)).toEqual(loop);
     });
 
     it("clamps to the rate range, −24…12 st", () => {
@@ -143,6 +158,14 @@ describe("STEP_PARAMS", () => {
       const loop: Loop = { ...testLoop(), channels: { kick: [{ at: 36 }] } };
       expect(getNudge(loop, "kick", 2)).toBe(-12);
       expect(timing.get(loop, "kick", 2)).toBe(-MAX_NUDGE);
+    });
+
+    it("stops a sustained note's slider at its edge without changing its duration", () => {
+      const loop: Loop = { ...testLoop(), channels: { kick: [{ at: 0, duration: 95 }] } };
+      expect(timing.set(loop, "kick", 0, -5)).toBe(loop);
+      const late = timing.set(loop, "kick", 0, 5);
+      expect(late.channels.kick).toEqual([{ at: 5, duration: 95 }]);
+      expect(timing.get(late, "kick", 0)).toBe(5);
     });
 
     it("formats late, early and on the grid", () => {

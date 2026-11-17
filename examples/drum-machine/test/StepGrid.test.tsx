@@ -10,7 +10,7 @@ afterEach(cleanup);
 const noop = () => {};
 
 describe("StepGrid", () => {
-  it("renders a row of 16 buttons per channel of buttons whose aria-pressed matches the loop", () => {
+  it("renders a row of 16 buttons per channel, with aria-pressed matching the loop", () => {
     const loop = testLoop();
     render(<StepGrid loop={loop} onToggle={noop} playheadStep={null} />);
 
@@ -78,11 +78,12 @@ describe("StepGrid", () => {
       expect(marked.map((b) => b.getAttribute("aria-label"))).toEqual(CHANNELS.map((c) => `${c} step 21`));
     });
 
-    it("marks beats relative to each bar", () => {
+    it("marks every fourth step of each bar as a beat", () => {
       render(<StepGrid loop={twoBars()} onToggle={noop} playheadStep={null} />);
 
       const beats = (bar: string) =>
         rowOf(screen.getByRole("group", { name: bar }), "kick").flatMap((b, i) => (b.hasAttribute("data-beat") ? [i] : []));
+      expect(beats("Bar 1")).toEqual([0, 4, 8, 12]);
       expect(beats("Bar 2")).toEqual([0, 4, 8, 12]);
     });
 

@@ -57,9 +57,23 @@ describe("Sharing", () => {
     expect(onImport).not.toHaveBeenCalled();
   });
 
-  it("resets to the beat through its button", () => {
-    const { onReset } = setup();
-    fireEvent.click(screen.getByRole("button", { name: "Reset to boom-bap" }));
-    expect(onReset).toHaveBeenCalledTimes(1);
+  describe("reset", () => {
+    const click = () => fireEvent.click(screen.getByRole("button", { name: "Reset to boom-bap" }));
+    afterEach(() => vi.restoreAllMocks());
+
+    it("asks first and resets when confirmed", () => {
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+      const { onReset } = setup();
+      click();
+      expect(confirm).toHaveBeenCalledWith("Replace your loop with the boom-bap beat?");
+      expect(onReset).toHaveBeenCalledTimes(1);
+    });
+
+    it("does nothing when cancelled", () => {
+      vi.spyOn(window, "confirm").mockReturnValue(false);
+      const { onReset } = setup();
+      click();
+      expect(onReset).not.toHaveBeenCalled();
+    });
   });
 });
