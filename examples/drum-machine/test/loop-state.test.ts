@@ -1,7 +1,22 @@
 import { parseLoop } from "@loops/core";
 import type { Loop } from "@loops/core";
 import { describe, expect, it } from "vitest";
-import { CHANNELS, createInitialLoop, getStepData, isStepOn, setStepData, STEP_TICKS, toggleStep } from "../src/loop-state";
+import {
+  CHANNELS,
+  createInitialLoop,
+  getNudge,
+  getStepData,
+  isStepOn,
+  MAX_NUDGE,
+  nudgeOf,
+  setNudge,
+  setStepData,
+  stepCount,
+  stepOf,
+  stepsPerBar,
+  STEP_TICKS,
+  toggleStep,
+} from "../src/loop-state";
 
 function deepFreeze<T>(value: T): T {
   if (typeof value === "object" && value !== null && !Object.isFrozen(value)) {
@@ -135,5 +150,92 @@ describe("setStepData", () => {
     expect(setStepData(loop, "kick", 0, {})).toBe(loop);
     expect(setStepData(loop, "kick", 0, { gain: 5 })).toBe(loop);
     expect(setStepData(loop, "kick", 0, { gain: NaN, attack: Infinity })).toBe(loop);
+  });
+});
+
+describe("step identity and nudge", () => {
+  const twoBars = (kick: Loop["channels"][string]): Loop => ({
+    version: 1,
+    bars: 2,
+    beatsPerBar: 4,
+    tempo: 92,
+    channels: { kick },
+  });
+  const empty = twoBars([]);
+
+  it("sizes the grid from the loop", () => {
+    expect(MAX_NUDGE).toBe(11);
+    expect([stepsPerBar(empty), stepCount(empty)]).toEqual([16, 32]);
+    expect(stepCount({ bars: 1, beatsPerBar: 4 })).toBe(16);
+    expect(stepCount({ bars: 1, beatsPerBar: 3 })).toBe(12);
+  });
+
+  it("identifies a tick with its nearest sixteenth, wrapping at the loop end", () => {
+    expect([0, 50, 183, 761].map((at) => stepOf(empty, at))).toEqual([0, 2, 8, 0]);
+    expect([50, 183, 761].map(nudgeOf)).toEqual([2, -9, -7]);
+  });
+
+  it("reads a nudged note as its step's note", () => {
+    const loop = twoBars([{ at: 50 }]);
+    expect(isStepOn(loop, "kick", 2)).toBe(true);
+    expect(isStepOn(loop, "kick", 1)).toBe(false);
+    expect(getNudge(loop, "kick", 2)).toBe(2);
+    expect(getNudge(loop, "kick", 1)).toBeNull();
+    expect(getNudge(loop, "cowbell", 2)).toBeNull();
+  });
+
+  it("moves a note to its step's tick plus the nudge", () => {
+    const loop = deepFreeze(twoBars([{ at: 50, data: { gain: 0.5 } }]));
+    const next = setNudge(loop, "kick", 2, -3);
+    expect(next.channels.kick).toEqual([{ at: 45, data: { gain: 0.5 } }]);
+    expect(loop.channels.kick).toEqual([{ at: 50, data: { gain: 0.5 } }]);
+  });
+
+  it("returns the same loop when the nudge is unchanged or the step is off", () => {
+    const loop = twoBars([{ at: 50 }]);
+    expect(setNudge(loop, "kick", 2, 2)).toBe(loop);
+    expect(setNudge(loop, "kick", 3, 5)).toBe(loop);
+    expect(setNudge(loop, "cowbell", 2, 5)).toBe(loop);
+  });
+
+  it("rounds and clamps the nudge, ignoring a non-finite one", () => {
+    const loop = twoBars([{ at: 48 }]);
+    expect(getNudge(setNudge(loop, "kick", 2, 99), "kick", 2)).toBe(MAX_NUDGE);
+    expect(getNudge(setNudge(loop, "kick", 2, -99), "kick", 2)).toBe(-MAX_NUDGE);
+    expect(getNudge(setNudge(loop, "kick", 2, 2.6), "kick", 2)).toBe(3);
+    expect(setNudge(loop, "kick", 2, NaN)).toBe(loop);
+  });
+
+  it("wraps a note nudged back past the loop start, and does not wrap forward within the loop", () => {
+    const first = twoBars([{ at: 0 }]);
+    expect(setNudge(first, "kick", 0, -7).channels.kick).toEqual([{ at: 761 }]);
+    const last = twoBars([{ at: 744 }]);
+    expect(setNudge(last, "kick", 31, 11).channels.kick).toEqual([{ at: 755 }]);
+  });
+
+  it("trims a wrapped note's duration to the loop end", () => {
+    const loop = twoBars([{ at: 0, duration: 60 }]);
+    const next = setNudge(loop, "kick", 0, -7);
+    expect(next.channels.kick).toEqual([{ at: 761, duration: 7 }]);
+    expect(parseLoop(next).ok).toBe(true);
+  });
+
+  it("toggles off a nudged note and toggles on at the grid tick", () => {
+    const loop = deepFreeze(twoBars([{ at: 50 }]));
+    const off = toggleStep(loop, "kick", 2);
+    expect(off.channels.kick).toEqual([]);
+    expect(toggleStep(off, "kick", 3).channels.kick).toEqual([{ at: 3 * STEP_TICKS, data: { gain: 1, attack: 0 } }]);
+  });
+
+  it("reads the first of several notes on one step and toggling removes them all", () => {
+    const loop = deepFreeze(twoBars([{ at: 48 }, { at: 50 }]));
+    expect(getNudge(loop, "kick", 2)).toBe(0);
+    expect(toggleStep(loop, "kick", 2).channels.kick).toEqual([]);
+  });
+
+  it("edits only the first note when several share a step", () => {
+    const loop = twoBars([{ at: 48 }, { at: 50 }]);
+    expect(setNudge(loop, "kick", 2, 4).channels.kick).toEqual([{ at: 50 }, { at: 52 }]);
+    expect(getStepData(setStepData(loop, "kick", 2, { gain: 0.3 }), "kick", 2)?.gain).toBe(0.3);
   });
 });

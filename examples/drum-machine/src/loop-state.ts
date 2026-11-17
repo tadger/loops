@@ -1,4 +1,4 @@
-import { setChannel, steps, toggleNote } from "@loops/core";
+import { loopLength, setChannel, steps } from "@loops/core";
 import type { Loop } from "@loops/core";
 import { clampStepData, DEFAULT_STEP_DATA, readStepData } from "./step-data";
 import type { StepData } from "./step-data";
@@ -24,18 +24,60 @@ export function createInitialLoop(): Loop {
   };
 }
 
-export function toggleStep(loop: Loop, channel: string, step: number): Loop {
-  return toggleNote(loop, channel, step * STEP_TICKS, { data: DEFAULT_STEP_DATA });
+export const MAX_NUDGE = 11;
+
+export function stepsPerBar(loop: Pick<Loop, "beatsPerBar">): number {
+  return loop.beatsPerBar * 4;
 }
 
-export function isStepOn(loop: Loop, channel: string, step: number): boolean {
-  const notes = Object.hasOwn(loop.channels, channel) ? loop.channels[channel]! : [];
-  return notes.some((n) => n.at === step * STEP_TICKS);
+export function stepCount(loop: Pick<Loop, "bars" | "beatsPerBar">): number {
+  return loop.bars * stepsPerBar(loop);
+}
+
+/** The nearest sixteenth; a tick past the last step's half-way point wraps to step 0. */
+export function stepOf(loop: Pick<Loop, "bars" | "beatsPerBar">, at: number): number {
+  return Math.round(at / STEP_TICKS) % stepCount(loop);
+}
+
+export function nudgeOf(at: number): number {
+  return at - Math.round(at / STEP_TICKS) * STEP_TICKS;
+}
+
+function notesOf(loop: Loop, channel: string) {
+  return Object.hasOwn(loop.channels, channel) ? loop.channels[channel]! : [];
 }
 
 function noteAt(loop: Loop, channel: string, step: number) {
-  const notes = Object.hasOwn(loop.channels, channel) ? loop.channels[channel]! : [];
-  return notes.find((n) => n.at === step * STEP_TICKS);
+  return notesOf(loop, channel).find((n) => stepOf(loop, n.at) === step);
+}
+
+export function toggleStep(loop: Loop, channel: string, step: number): Loop {
+  const notes = notesOf(loop, channel);
+  if (noteAt(loop, channel, step) !== undefined) {
+    return setChannel(loop, channel, notes.filter((n) => stepOf(loop, n.at) !== step));
+  }
+  return setChannel(loop, channel, [...notes, { at: step * STEP_TICKS, data: DEFAULT_STEP_DATA }]);
+}
+
+export function isStepOn(loop: Loop, channel: string, step: number): boolean {
+  return noteAt(loop, channel, step) !== undefined;
+}
+
+export function getNudge(loop: Loop, channel: string, step: number): number | null {
+  const note = noteAt(loop, channel, step);
+  return note === undefined ? null : nudgeOf(note.at);
+}
+
+export function setNudge(loop: Loop, channel: string, step: number, nudge: number): Loop {
+  const note = noteAt(loop, channel, step);
+  if (note === undefined || !Number.isFinite(nudge)) return loop;
+  const clamped = Math.max(-MAX_NUDGE, Math.min(MAX_NUDGE, Math.round(nudge)));
+  const length = loopLength(loop);
+  const at = (((step * STEP_TICKS + clamped) % length) + length) % length;
+  if (at === note.at) return loop;
+  const moved = { ...note, at };
+  if (moved.duration !== undefined && at + moved.duration > length) moved.duration = length - at;
+  return setChannel(loop, channel, notesOf(loop, channel).map((n) => (n === note ? moved : n)));
 }
 
 export function getStepData(loop: Loop, channel: string, step: number): StepData | null {
