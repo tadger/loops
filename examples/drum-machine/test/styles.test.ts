@@ -64,11 +64,19 @@ describe("styles.css", () => {
     expect(bloom.split(/,(?![^(]*\))/).length).toBeGreaterThanOrEqual(2);
   });
 
-  it("stretches the LCD panel to the height of its row's pads, centering the text", () => {
+  it("sits just inside its row's pads: stretched to the row, less a small margin, text centered", () => {
     const rule = body("button.step-label.lcd");
     expect(rule).toContain("align-self: stretch");
+    expect(rule).toMatch(/margin-block:\s*0\.2rem/);
     expect(rule).toContain("display: flex");
     expect(rule).toContain("align-items: center");
+  });
+
+  it("keeps the bloom to 10px and the Doto weight at 400", () => {
+    const rule = body("button.step-label.lcd");
+    expect(rule).toContain("font-weight: 400");
+    expect(rule).toMatch(/0 0 10px var\(--lcd-glow\)/);
+    expect(rule).not.toContain("14px");
   });
 
   it("dims a muted sound's label and drops its bloom, dimming only the pads of its row", () => {

@@ -122,8 +122,9 @@
   /* A recessed LCD panel: Doto's dots lit brighter than the panel, with a bloom around them. */
   button.step-label.lcd {
     box-sizing: border-box;
-    /* Fill the row, which the pad's height sets, and centre the text in it. */
+    /* Fill the row the pads set, less a small margin so the panel sits just inside them; centre the text. */
     align-self: stretch;
+    margin-block: 0.2rem;
     display: flex;
     align-items: center;
     padding: 0 0.5rem;
@@ -133,13 +134,13 @@
     color: var(--lcd-text);
     font-family: "Doto Variable", ui-monospace, monospace;
     font-size: 1rem;
-    font-weight: 800;
+    font-weight: 400;
     line-height: 1.2;
     letter-spacing: 0.05em;
     text-shadow:
       0 0 1px var(--lcd-text),
       0 0 6px var(--lcd-glow),
-      0 0 14px var(--lcd-glow);
+      0 0 10px var(--lcd-glow);
     box-shadow:
       inset 0 2px 5px color-mix(in srgb, black 75%, transparent),
       0 1px 0 var(--tc-edge-highlight);
