@@ -9,7 +9,7 @@ import { Controls } from "./Controls";
 import { Sharing } from "./Sharing";
 import { StepGrid } from "./StepGrid";
 import { StepLanes } from "./StepLanes";
-import { CHANNELS, STEP_TICKS, toggleStep } from "./loop-state";
+import { addBar, CHANNELS, removeBar, STEP_TICKS, toggleStep } from "./loop-state";
 import type { StepParam } from "./params";
 
 interface MachineProps {
@@ -79,6 +79,8 @@ export function Machine({
         muted={muted}
         onToggleMute={onToggleMute}
         onSetAllMuted={onSetAllMuted}
+        onAddBar={() => onEdit(addBar(loop))}
+        onRemoveBar={(bar) => onEdit(removeBar(loop, bar))}
       />
       <StepLanes
         loop={loop}

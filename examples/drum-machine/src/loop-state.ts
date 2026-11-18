@@ -1,5 +1,5 @@
 import { loopLength, setChannel } from "@loops/core";
-import type { Loop } from "@loops/core";
+import type { Loop, Note } from "@loops/core";
 import { clampStepData, DEFAULT_STEP_DATA, readStepData } from "./step-data";
 import type { StepData } from "./step-data";
 
@@ -94,4 +94,59 @@ export function setStepData(loop: Loop, channel: string, step: number, patch: Pa
   const { data: _old, ...rest } = note;
   const edited = Object.keys(data).length > 0 ? { ...rest, data } : rest;
   return setChannel(loop, channel, notesOf(loop, channel).map((n) => (n === note ? edited : n)));
+}
+
+/**
+ * Rebuilds every channel for a loop with `bars` bars. `newOwner` maps a note's owner step to its new owner step,
+ * or to null to drop it. A note keeps its nudge, so a first-beat step nudged early (stored wrapped at the loop's
+ * end) wraps again at the new end.
+ */
+function rebuild(loop: Loop, bars: number, newOwner: (owner: number) => number | null): Loop {
+  const length = loopLength({ bars, beatsPerBar: loop.beatsPerBar });
+  const steps = stepCount(loop);
+  const entries = Object.entries(loop.channels).map(([channel, notes]) => {
+    const moved: Note[] = [];
+    for (const note of notes) {
+      const unwrapped = Math.round(note.at / STEP_TICKS);
+      const owner = newOwner(unwrapped % steps);
+      if (owner === null) continue;
+      let at = owner * STEP_TICKS + (note.at - unwrapped * STEP_TICKS);
+      // A sustained note never wraps (see setNudge), so an early nudge past the start is dropped instead.
+      if (at < 0) at = note.duration === undefined ? at + length : 0;
+      moved.push(note.duration === undefined ? { ...note, at } : { ...note, at, duration: Math.min(note.duration, length - at) });
+    }
+    return [channel, moved.sort((a, b) => a.at - b.at)] as const;
+  });
+  return { ...loop, bars, channels: Object.fromEntries(entries) };
+}
+
+/** Appends an empty bar. */
+export function addBar(loop: Loop): Loop {
+  return rebuild(loop, loop.bars + 1, (owner) => owner);
+}
+
+/** Deletes a bar's steps and shifts later bars left; the last remaining bar is never removed. */
+export function removeBar(loop: Loop, bar: number): Loop {
+  if (loop.bars <= 1 || !Number.isInteger(bar) || bar < 0 || bar >= loop.bars) return loop;
+  const perBar = stepsPerBar(loop);
+  return rebuild(loop, loop.bars - 1, (owner) => {
+    const ownerBar = Math.floor(owner / perBar);
+    if (ownerBar === bar) return null;
+    return ownerBar > bar ? owner - perBar : owner;
+  });
+}
+
+/** How many channel steps have a note in the bar. */
+export function stepsInBar(loop: Loop, bar: number): number {
+  const perBar = stepsPerBar(loop);
+  let count = 0;
+  for (const notes of Object.values(loop.channels)) {
+    const owned = new Set<number>();
+    for (const note of notes) {
+      const owner = stepOf(loop, note.at);
+      if (Math.floor(owner / perBar) === bar) owned.add(owner);
+    }
+    count += owned.size;
+  }
+  return count;
 }

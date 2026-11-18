@@ -4,10 +4,14 @@
 :root {
   color-scheme: light dark;
   /* Shared by the step grid and the parameter lanes so their columns line up. */
-  --step-label-width: 3.5rem;
+  --step-label-width: 6.5rem;
   --step-min: 1.5rem;
   --step-gap: 0.25rem;
   /* --tc-text-muted is too faint on white in light; this stays readable on both surfaces. */
+  /* A backlit LCD reads the same on a light or a dark page, so these do not switch with the scheme. */
+  --lcd-bg: #0b1a22;
+  --lcd-text: #b8f1ff;
+  --lcd-glow: #38c8ee;
   --soft-text: color-mix(in srgb, var(--tc-text) 60%, transparent);
   /* The theme has no syntax colors; these are the app's own, for both schemes. */
   --json-string: #15803d;
@@ -112,11 +116,38 @@
     font: inherit;
     cursor: pointer;
   }
-  button.step-label[aria-pressed="true"] {
-    text-decoration: line-through;
-  }
-  .step-row[data-muted] {
+  .step-row[data-muted] .step {
     opacity: 0.45;
+  }
+  /* A recessed LCD panel: Doto's dots lit brighter than the panel, with a bloom around them. */
+  button.step-label.lcd {
+    box-sizing: border-box;
+    /* Fill the row, which the pad's height sets, and centre the text in it. */
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+    border: 1px solid color-mix(in srgb, black 60%, transparent);
+    border-radius: var(--tc-radius);
+    background: var(--lcd-bg);
+    color: var(--lcd-text);
+    font-family: "Doto Variable", ui-monospace, monospace;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.05em;
+    text-shadow:
+      0 0 1px var(--lcd-text),
+      0 0 6px var(--lcd-glow),
+      0 0 14px var(--lcd-glow);
+    box-shadow:
+      inset 0 2px 5px color-mix(in srgb, black 75%, transparent),
+      0 1px 0 var(--tc-edge-highlight);
+  }
+  /* A muted sound's segments are unlit: dim text, no bloom. */
+  button.step-label.lcd[aria-pressed="true"] {
+    color: color-mix(in srgb, var(--lcd-text) 35%, var(--lcd-bg));
+    text-shadow: none;
   }
   .lanes {
     display: grid;
@@ -202,7 +233,6 @@
   }
   .sharing {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
     gap: 1rem;
     margin-top: 1.5rem;
   }
@@ -251,5 +281,36 @@
   .json-null {
     color: var(--soft-text);
     font-style: italic;
+  }
+  /* stopgap: topcoat-dialog (the theme's dialog is built but not yet published); delete this block when it lands. */
+  .topcoat-dialog {
+    box-sizing: border-box;
+    margin: auto;
+    padding: 1rem;
+    width: min(24rem, calc(100vw - 2rem));
+    background: var(--tc-surface);
+    color: var(--tc-text);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius);
+    box-shadow: 0 2px 6px color-mix(in srgb, black 25%, transparent);
+  }
+  .topcoat-dialog::backdrop {
+    background: color-mix(in srgb, black 45%, transparent);
+  }
+  .topcoat-dialog__title {
+    margin: 0 0 0.5rem;
+    font-size: var(--tc-font-size-large);
+    font-weight: 600;
+    color: var(--tc-text-strong);
+  }
+  .topcoat-dialog__body {
+    margin: 0 0 1rem;
+    font-size: var(--tc-font-size);
+  }
+  .topcoat-dialog__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
   }
 }

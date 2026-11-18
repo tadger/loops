@@ -2,19 +2,23 @@ import { parseLoop } from "@loops/core";
 import type { Loop } from "@loops/core";
 import { describe, expect, it } from "vitest";
 import {
+  addBar,
   getNudge,
   getStepData,
   isStepOn,
   MAX_NUDGE,
   nudgeOf,
+  removeBar,
   setNudge,
   setStepData,
   stepCount,
   stepOf,
+  stepsInBar,
   stepsPerBar,
   STEP_TICKS,
   toggleStep,
 } from "../src/loop-state";
+import { createBoomBapLoop } from "../src/beats";
 import { testLoop } from "./fixtures";
 
 function deepFreeze<T>(value: T): T {
@@ -274,5 +278,111 @@ describe("step identity and nudge", () => {
     const loop = twoBars([{ at: 48 }, { at: 50 }]);
     expect(setNudge(loop, "kick", 2, 4).channels.kick).toEqual([{ at: 50 }, { at: 52 }]);
     expect(getStepData(setStepData(loop, "kick", 2, { gain: 0.3 }), "kick", 2)?.gain).toBe(0.3);
+  });
+});
+
+describe("bars", () => {
+  const BAR = 16 * STEP_TICKS;
+  const barsLoop = (bars: number, channels: Loop["channels"]): Loop => ({ ...testLoop(), bars, channels });
+  const on = (stepNumbers: number[]) => stepNumbers.map((step) => ({ at: step * STEP_TICKS }));
+
+  it("addBar appends an empty bar and leaves every note where it was", () => {
+    const loop = barsLoop(1, { kick: on([0, 7]), snare: on([4]) });
+    const next = addBar(loop);
+    expect(next.bars).toBe(2);
+    expect(next.channels).toEqual(loop.channels);
+  });
+
+  it("addBar keeps a first-beat step nudged early on step 0", () => {
+    const loop = setNudge(barsLoop(1, { kick: on([0]) }), "kick", 0, -5);
+    expect(loop.channels.kick![0]!.at).toBe(BAR - 5);
+    const next = addBar(loop);
+    expect(isStepOn(next, "kick", 0)).toBe(true);
+    expect(getNudge(next, "kick", 0)).toBe(-5);
+    expect(next.channels.kick![0]!.at).toBe(2 * BAR - 5);
+  });
+
+  it("removeBar on the last bar deletes only that bar's steps", () => {
+    const next = removeBar(barsLoop(2, { kick: on([0, 3, 16, 20]) }), 1);
+    expect(next.bars).toBe(1);
+    expect(next.channels.kick).toEqual(on([0, 3]));
+  });
+
+  it("removeBar shifts later bars left by one bar", () => {
+    const next = removeBar(barsLoop(2, { kick: on([1, 19]) }), 0);
+    expect(next.bars).toBe(1);
+    expect(next.channels.kick).toEqual(on([3]));
+  });
+
+  it("removeBar keeps a nudged step's nudge when it shifts, wrapping an early first-beat step to the end", () => {
+    const loop = barsLoop(2, { kick: [{ at: BAR + 5 }], snare: [{ at: BAR - 5 }, { at: BAR }] });
+    const next = removeBar(loop, 0);
+    expect(next.channels.kick).toEqual([{ at: 5 }]);
+    expect(next.channels.snare).toEqual([{ at: 0 }, { at: BAR - 5 }]);
+  });
+
+  it("removeBar drops a wrapped early-nudged step 0 when bar 0 is removed", () => {
+    const next = removeBar(barsLoop(2, { kick: [{ at: BAR }, { at: 2 * BAR - 5 }] }), 0);
+    expect(next.channels.kick).toEqual([{ at: 0 }]);
+  });
+
+  it("removeBar keeps a wrapped step 0 at the end of the shorter loop when a later bar is removed", () => {
+    const next = removeBar(barsLoop(2, { kick: [{ at: 2 * BAR - 5 }] }), 1);
+    expect(next.channels.kick).toEqual([{ at: BAR - 5 }]);
+  });
+
+  it("removeBar clamps a sustained note that would pass the new loop end", () => {
+    const loop = barsLoop(3, { kick: [{ at: 0, duration: 2.5 * BAR }, { at: 0, duration: BAR }] });
+    const next = removeBar(loop, 2);
+    expect(next.channels.kick).toEqual([
+      { at: 0, duration: 2 * BAR },
+      { at: 0, duration: BAR },
+    ]);
+  });
+
+  it("removeBar keeps a sustained note whole when its early nudge would wrap it, dropping the nudge instead", () => {
+    const next = removeBar(barsLoop(2, { kick: [{ at: BAR - 5, duration: 60 }] }), 0);
+    expect(next.channels.kick).toEqual([{ at: 0, duration: 60 }]);
+  });
+
+  it("removeBar leaves the default beat's sustained notes at their full duration and the loop valid", () => {
+    const next = removeBar(createBoomBapLoop(), 0);
+    expect(next.channels.plong2!.map((note) => note.duration)).toEqual([60, 60]);
+    expect(parseLoop(JSON.parse(JSON.stringify(next))).ok).toBe(true);
+  });
+
+  it("removeBar returns the same loop for the last remaining bar, a negative index, a fractional index or one past the end", () => {
+    const one = barsLoop(1, { kick: on([0]) });
+    expect(removeBar(one, 0)).toBe(one);
+    const two = barsLoop(2, { kick: on([0]) });
+    for (const index of [-1, 2, 0.5, Number.NaN]) expect(removeBar(two, index)).toBe(two);
+  });
+
+  it("removeBar keeps channels with no notes and channels outside CHANNELS, in order", () => {
+    const next = removeBar(barsLoop(2, { kick: on([0]), bass: [], extra: on([17]) }), 0);
+    expect(Object.keys(next.channels)).toEqual(["kick", "bass", "extra"]);
+    expect(next.channels.bass).toEqual([]);
+    expect(next.channels.extra).toEqual(on([1]));
+  });
+
+  it("addBar then removeBar on the new last bar returns an equal loop", () => {
+    const loop = barsLoop(2, { kick: on([0, 17]), snare: [{ at: 2 * BAR - 5 }] });
+    expect(removeBar(addBar(loop), 2)).toEqual(loop);
+  });
+
+  it("does not mutate its input", () => {
+    const loop = deepFreeze(barsLoop(2, { kick: on([0, 17]), snare: [{ at: 2 * BAR - 5 }] }));
+    expect(() => addBar(loop)).not.toThrow();
+    expect(() => removeBar(loop, 0)).not.toThrow();
+  });
+
+  it("stepsInBar counts each channel's step once, per bar, including a wrapped step 0 in bar 0", () => {
+    const loop = barsLoop(2, {
+      kick: [...on([0, 3]), { at: 3 * STEP_TICKS }, { at: 2 * BAR - 5 }],
+      snare: on([3, 20]),
+    });
+    expect(stepsInBar(loop, 0)).toBe(3);
+    expect(stepsInBar(loop, 1)).toBe(1);
+    expect(stepsInBar(loop, 2)).toBe(0);
   });
 });

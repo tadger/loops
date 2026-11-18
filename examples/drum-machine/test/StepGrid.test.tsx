@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Loop } from "@loops/core";
 import { StepGrid } from "../src/StepGrid";
 import type { StepGridProps } from "../src/StepGrid";
-import { CHANNELS, STEP_TICKS, isStepOn } from "../src/loop-state";
+import { CHANNELS, STEP_TICKS, isStepOn, removeBar, stepsInBar } from "../src/loop-state";
 import { testLoop } from "./fixtures";
+import "./dialog-stub";
 
 afterEach(cleanup);
 
@@ -21,6 +23,8 @@ function grid(overrides: Partial<StepGridProps> = {}) {
       muted={new Set()}
       onToggleMute={noop}
       onSetAllMuted={noop}
+      onAddBar={noop}
+      onRemoveBar={noop}
       {...overrides}
     />
   );
@@ -202,5 +206,112 @@ describe("StepGrid theme", () => {
   it("styles the mute-all button with the theme", () => {
     render(grid());
     expect(screen.getByRole("button", { name: "Mute all" }).classList.contains("topcoat-button")).toBe(true);
+  });
+});
+
+describe("StepGrid LCD", () => {
+  it("shows each sound's name on an LCD panel", () => {
+    render(grid());
+    for (const channel of CHANNELS) {
+      const label = screen.getAllByRole("button", { name: channel })[0]!;
+      expect(label.classList.contains("lcd")).toBe(true);
+    }
+  });
+});
+
+describe("StepGrid bars", () => {
+  const twoBars = (): Loop => ({ ...testLoop(), bars: 2 });
+  const dialog = () => document.querySelector("dialog")!;
+
+  it("adds a bar with the Add bar button", () => {
+    const onAddBar = vi.fn();
+    render(grid({ onAddBar }));
+    fireEvent.click(screen.getByRole("button", { name: "Add bar" }));
+    expect(onAddBar).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives each bar a Remove bar button, disabled when only one bar is left", () => {
+    const one = render(grid());
+    expect((screen.getByRole("button", { name: "Remove bar 1" }) as HTMLButtonElement).disabled).toBe(true);
+    one.unmount();
+    render(grid({ loop: twoBars() }));
+    expect((screen.getByRole("button", { name: "Remove bar 1" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Remove bar 2" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("removes an empty bar straight away", () => {
+    const onRemoveBar = vi.fn();
+    render(grid({ loop: twoBars(), onRemoveBar }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 2" }));
+    expect(onRemoveBar).toHaveBeenCalledWith(1);
+    expect(dialog().hasAttribute("open")).toBe(false);
+  });
+
+  it("asks before removing a bar that has steps, naming the bar and the count", () => {
+    const onRemoveBar = vi.fn();
+    const loop = twoBars();
+    const count = stepsInBar(loop, 0);
+    expect(count).toBeGreaterThan(1);
+    render(grid({ loop, onRemoveBar }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 1" }));
+    expect(dialog().hasAttribute("open")).toBe(true);
+    expect(screen.getByRole("dialog", { name: "Remove bar 1?" })).toBe(dialog());
+    expect(screen.getByText(`Bar 1 has ${count} steps. Removing it deletes them.`)).toBeTruthy();
+    expect(onRemoveBar).not.toHaveBeenCalled();
+  });
+
+  it("says 1 step, not 1 steps", () => {
+    render(grid({ loop: { ...twoBars(), channels: { kick: [{ at: 0 }] } } }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 1" }));
+    expect(screen.getByText("Bar 1 has 1 step. Removing it deletes it.")).toBeTruthy();
+  });
+
+  it("closes on Cancel without removing, and removes that bar and closes on the confirm button", () => {
+    const onRemoveBar = vi.fn();
+    render(grid({ loop: twoBars(), onRemoveBar }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(dialog().hasAttribute("open")).toBe(false);
+    expect(onRemoveBar).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 1" }));
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Remove bar" }));
+    expect(onRemoveBar).toHaveBeenCalledTimes(1);
+    expect(onRemoveBar).toHaveBeenCalledWith(0);
+    expect(dialog().hasAttribute("open")).toBe(false);
+  });
+});
+
+describe("StepGrid focus after removing a bar", () => {
+  function Harness({ initial }: { initial: Loop }) {
+    const [loop, setLoop] = useState(initial);
+    return grid({ loop, onRemoveBar: (bar) => setLoop((current) => removeBar(current, bar)) });
+  }
+  const bars = (n: number): Loop => ({ ...testLoop(), bars: n });
+  const focusedName = () => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent;
+
+  it("moves focus to the previous bar's Remove button after removing the last bar", () => {
+    render(<Harness initial={bars(3)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 3" }));
+    expect(focusedName()).toBe("Remove bar 2");
+  });
+
+  it("keeps focus at the same position after removing a middle bar", () => {
+    render(<Harness initial={bars(3)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 2" }));
+    expect(focusedName()).toBe("Remove bar 2");
+  });
+
+  it("moves focus to Add bar when removing leaves a single bar, whose Remove button is disabled", () => {
+    render(<Harness initial={bars(2)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 2" }));
+    expect(focusedName()).toBe("Add bar");
+  });
+
+  it("does the same after confirming the removal of a bar that has steps", () => {
+    render(<Harness initial={bars(2)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Remove bar 1" }));
+    fireEvent.click(within(document.querySelector("dialog")!).getByRole("button", { name: "Remove bar" }));
+    expect(focusedName()).toBe("Add bar");
   });
 });

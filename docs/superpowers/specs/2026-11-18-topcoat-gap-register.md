@@ -41,6 +41,10 @@ app stopgaps were deleted, and a test pins that none are left. The theme also ad
 resolves the invalid-message contrast finding below. Still open and app-side: gaps 6 to 10, including
 `--soft-text` (gap 10).
 
+## Dialog
+
+The bar-removal confirmation needs a modal dialog. The theme built `topcoat-dialog` (commit `262c7d3` on its local `main`, not yet pushed). Until it is pushed and pinned, the app carries a stopgap under the same class names (`topcoat-dialog`, `__title`, `__body`, `__actions`), marked `stopgap: topcoat-dialog` in `styles.css`; adopting the theme's version means deleting that block and pinning the new commit. The theme's version also adds `--tc-backdrop` and `--tc-shadow-float` tokens, which the stopgap approximates with `color-mix`.
+
 ## Findings from the review pass
 
 Found by the whole-branch review and fixed in the app; each also bears on a theme request.
