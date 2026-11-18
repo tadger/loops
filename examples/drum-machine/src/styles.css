@@ -282,35 +282,4 @@
     color: var(--soft-text);
     font-style: italic;
   }
-  /* stopgap: topcoat-dialog (the theme's dialog is built but not yet published); delete this block when it lands. */
-  .topcoat-dialog {
-    box-sizing: border-box;
-    margin: auto;
-    padding: 1rem;
-    width: min(24rem, calc(100vw - 2rem));
-    background: var(--tc-surface);
-    color: var(--tc-text);
-    border: 1px solid var(--tc-border);
-    border-radius: var(--tc-radius);
-    box-shadow: 0 2px 6px color-mix(in srgb, black 25%, transparent);
-  }
-  .topcoat-dialog::backdrop {
-    background: color-mix(in srgb, black 45%, transparent);
-  }
-  .topcoat-dialog__title {
-    margin: 0 0 0.5rem;
-    font-size: var(--tc-font-size-large);
-    font-weight: 600;
-    color: var(--tc-text-strong);
-  }
-  .topcoat-dialog__body {
-    margin: 0 0 1rem;
-    font-size: var(--tc-font-size);
-  }
-  .topcoat-dialog__actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 0.5rem;
-  }
 }

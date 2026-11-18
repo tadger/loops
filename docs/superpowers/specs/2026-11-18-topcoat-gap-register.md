@@ -43,7 +43,7 @@ resolves the invalid-message contrast finding below. Still open and app-side: ga
 
 ## Dialog
 
-The bar-removal confirmation needs a modal dialog. The theme built `topcoat-dialog` (commit `262c7d3` on its local `main`, not yet pushed). Until it is pushed and pinned, the app carries a stopgap under the same class names (`topcoat-dialog`, `__title`, `__body`, `__actions`), marked `stopgap: topcoat-dialog` in `styles.css`; adopting the theme's version means deleting that block and pinning the new commit. The theme's version also adds `--tc-backdrop` and `--tc-shadow-float` tokens, which the stopgap approximates with `color-mix`.
+The bar-removal confirmation needs a modal dialog. The theme delivered `topcoat-dialog` (with `__title`, `__body`, `__actions`) at commit `262c7d3`, and the app now pins it and uses it as built, with the theme's `--tc-backdrop` and `--tc-shadow-float` tokens. The app's temporary stopgap was deleted, and a test pins that no stopgap remains. Still open and app-side: gaps 6 to 10.
 
 ## Findings from the review pass
 

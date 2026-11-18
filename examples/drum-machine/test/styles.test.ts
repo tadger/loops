@@ -87,8 +87,9 @@ describe("styles.css", () => {
     expect(readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8")).toContain("@fontsource-variable/doto");
   });
 
-  it("has only the dialog stopgap left, waiting on the theme", () => {
-    expect([...css.matchAll(/stopgap: ([\w-]+)/g)].map((match) => match[1])).toEqual(["topcoat-dialog"]);
+  it("has no stopgap left now that the theme provides the dialog", () => {
+    expect([...css.matchAll(/stopgap: ([\w-]+)/g)].map((match) => match[1])).toEqual([]);
+    expect(css).not.toContain(".topcoat-dialog");
     expect(css).not.toContain("--pad-playhead");
     expect(css).not.toMatch(/aria-pressed="true"\]:focus/);
     expect(css).not.toMatch(/\[role="alert"\]\s*\{/);
