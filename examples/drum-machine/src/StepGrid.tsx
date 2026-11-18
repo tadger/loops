@@ -5,24 +5,43 @@ export interface StepGridProps {
   loop: Loop;
   onToggle(channel: string, step: number): void;
   playheadStep: number | null;
+  muted: ReadonlySet<string>;
+  onToggleMute(channel: string): void;
+  onSetAllMuted(muted: boolean): void;
 }
 
-export function StepGrid({ loop, onToggle, playheadStep }: StepGridProps): React.JSX.Element {
+export function StepGrid({ loop, onToggle, playheadStep, muted, onToggleMute, onSetAllMuted }: StepGridProps): React.JSX.Element {
   const perBar = stepsPerBar(loop);
   const barSteps = Array.from({ length: perBar }, (_, i) => i);
+  const allMuted = CHANNELS.every((c) => muted.has(c));
   return (
     <div className="step-grid" role="group" aria-label="Step sequencer">
+      <div className="grid-toolbar">
+        <button type="button" onClick={() => onSetAllMuted(!allMuted)}>
+          {allMuted ? "Unmute all" : "Mute all"}
+        </button>
+      </div>
       {Array.from({ length: loop.bars }, (_, bar) => (
         <div
           className="step-bar"
           key={bar}
           role="group"
-          aria-label={`Bar ${bar + 1}`}
+          aria-labelledby={`step-bar-${bar}-heading`}
           style={{ "--steps": perBar } as React.CSSProperties}
         >
+          <div className="bar-heading" id={`step-bar-${bar}-heading`}>
+            Bar {bar + 1}
+          </div>
           {CHANNELS.map((channel) => (
-            <div className="step-row" key={channel}>
-              <span className="step-label">{channel}</span>
+            <div className="step-row" key={channel} data-muted={muted.has(channel) ? "" : undefined}>
+              <button
+                type="button"
+                className="step-label"
+                aria-pressed={muted.has(channel)}
+                onClick={() => onToggleMute(channel)}
+              >
+                {channel}
+              </button>
               {barSteps.map((i) => {
                 const step = bar * perBar + i;
                 return (

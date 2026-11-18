@@ -31,7 +31,6 @@ const hihatBar = (bar: number): Hit[] => [
   { at: `${bar}.4.53`, g: 0.6 },
 ];
 
-/** After Adam Renklint's dilla boom-bap demo, in tick positions; see public/samples/CREDITS.md. */
 export function createBoomBapLoop(): Loop {
   return {
     version: 1,
@@ -70,7 +69,7 @@ export function createBoomBapLoop(): Loop {
         { at: "1.4.52", d: 90, g: 0.2 },
         { at: "2.3.25", d: 70, g: 0.6 },
         { at: "2.4.01", d: 85, g: 0.3 },
-        // His 85 would run past the loop's end; 22 ends it exactly.
+        // 85 would run past the loop's end; 22 ends it exactly.
         { at: "2.4.75", d: 22, g: 0.1 },
       ]),
       string2: notes([{ at: "2.2.50", d: 70, g: 0.6 }]),

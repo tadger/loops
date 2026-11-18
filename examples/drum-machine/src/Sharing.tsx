@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import type { Diagnostic, Loop } from "@loops/core";
+import type { Diagnostic, Json, Loop } from "@loops/core";
+import { JsonTree } from "./JsonTree";
 import { exportLoop, importLoop } from "./persistence";
 
 interface SharingProps {
@@ -10,6 +11,7 @@ interface SharingProps {
 
 export function Sharing({ loop, onImport, onReset }: SharingProps) {
   const [exported, setExported] = useState<string | null>(null);
+  const [view, setView] = useState<"tree" | "raw">("tree");
   const [text, setText] = useState("");
   const [errors, setErrors] = useState<Diagnostic[]>([]);
   const importRef = useRef<HTMLTextAreaElement>(null);
@@ -26,7 +28,7 @@ export function Sharing({ loop, onImport, onReset }: SharingProps) {
   };
 
   const doReset = () => {
-    if (window.confirm("Replace your loop with the boom-bap beat?")) onReset();
+    if (window.confirm("Replace your loop with the default beat?")) onReset();
   };
 
   return (
@@ -36,9 +38,27 @@ export function Sharing({ loop, onImport, onReset }: SharingProps) {
           Export
         </button>
         <button type="button" onClick={doReset}>
-          Reset to boom-bap
+          Reset default beat
         </button>
-        {exported !== null && <textarea readOnly aria-label="Exported loop" value={exported} rows={10} />}
+        {exported !== null && (
+          <div className="export-view">
+            <div className="export-toggle" role="group" aria-label="Export view">
+              <button type="button" aria-pressed={view === "tree"} onClick={() => setView("tree")}>
+                Tree
+              </button>
+              <button type="button" aria-pressed={view === "raw"} onClick={() => setView("raw")}>
+                Raw
+              </button>
+            </div>
+            {view === "tree" ? (
+              <div className="json-view" role="group" aria-label="Exported loop">
+                <JsonTree value={JSON.parse(exported) as Json} />
+              </div>
+            ) : (
+              <textarea readOnly aria-label="Exported loop" value={exported} rows={10} />
+            )}
+          </div>
+        )}
       </div>
       <div>
         <label htmlFor="import-text">Import loop JSON</label>

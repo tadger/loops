@@ -5,7 +5,7 @@ import type { Loop } from "@loops/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { StepLanes } from "../src/StepLanes";
 import type { StepLanesProps } from "../src/StepLanes";
-import { CHANNELS, getNudge, getStepData, isStepOn, setNudge, setStepData } from "../src/loop-state";
+import { CHANNELS, getNudge, getStepData, isStepOn, setNudge, setStepData, STEP_TICKS } from "../src/loop-state";
 import { testLoop } from "./fixtures";
 
 afterEach(cleanup);
@@ -243,6 +243,34 @@ describe("StepLanes", () => {
       expect(slider("snare step 5 gain").disabled).toBe(false);
       expect(slider("snare step 8 gain").disabled).toBe(true);
       expect(getStepData(latest, "snare", 4)).toEqual({ gain: 1, decay: 2, rate: 1 });
+    });
+  });
+
+  describe("bar label focus", () => {
+    it("focuses the first lit step's dial in that bar when its label is clicked", () => {
+      render(lanes());
+
+      fireEvent.click(screen.getByRole("button", { name: "bar 1" }));
+
+      expect(document.activeElement).toBe(slider("kick step 1 gain"));
+    });
+
+    it("focuses within the clicked bar, not another one", () => {
+      const loop = twoBars();
+      loop.channels.kick = [...loop.channels.kick!, { at: 17 * STEP_TICKS }]; // lights step 18, in bar 2
+      render(lanes({ loop }));
+
+      fireEvent.click(screen.getByRole("button", { name: "bar 2" }));
+
+      expect(document.activeElement).toBe(slider("kick step 18 gain"));
+    });
+
+    it("does nothing when every step in that bar is off, since a disabled dial cannot take focus", () => {
+      render(lanes({ channel: "bass" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "bar 1" }));
+
+      expect(document.activeElement).not.toBe(slider("bass step 1 gain"));
     });
   });
 

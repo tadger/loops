@@ -20,9 +20,23 @@ interface MachineProps {
   startRequested: boolean;
   onStarted(): void;
   onPrepareAudio(): Promise<void>;
+  muted: ReadonlySet<string>;
+  onToggleMute(channel: string): void;
+  onSetAllMuted(muted: boolean): void;
 }
 
-export function Machine({ loop, onEdit, audio, loading, startRequested, onStarted, onPrepareAudio }: MachineProps) {
+export function Machine({
+  loop,
+  onEdit,
+  audio,
+  loading,
+  startRequested,
+  onStarted,
+  onPrepareAudio,
+  muted,
+  onToggleMute,
+  onSetAllMuted,
+}: MachineProps) {
   const transport = useTransport();
   const status = useTransportState((s) => s.status);
   const loopApplied = useTransportState((s) => s.loop !== null);
@@ -47,7 +61,7 @@ export function Machine({ loop, onEdit, audio, loading, startRequested, onStarte
   return (
     <>
       {CHANNELS.map((channel) => (
-        <ChannelPlayer key={channel} channel={channel} audio={audio} />
+        <ChannelPlayer key={channel} channel={channel} audio={audio} muted={muted.has(channel)} />
       ))}
       <Controls
         status={status}
@@ -62,6 +76,9 @@ export function Machine({ loop, onEdit, audio, loading, startRequested, onStarte
         loop={loop}
         onToggle={(channel, i) => onEdit(toggleStep(loop, channel, i))}
         playheadStep={status === "stopped" ? null : step}
+        muted={muted}
+        onToggleMute={onToggleMute}
+        onSetAllMuted={onSetAllMuted}
       />
       <StepLanes
         loop={loop}

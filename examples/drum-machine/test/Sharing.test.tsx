@@ -22,13 +22,32 @@ const importWith = (text: string) => {
 };
 
 describe("Sharing", () => {
-  it("exports the loop's canonical JSON in a read-only textarea", () => {
+  it("shows the exported loop as a fold-able tree by default, not the raw textarea", () => {
     const { loop } = setup();
-    expect(screen.queryByLabelText("Exported loop")).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Exported loop" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
+
+    expect(screen.queryByRole("textbox", { name: "Exported loop" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Exported loop" })).toBeTruthy();
+    expect(screen.getByText(String(loop.tempo))).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tree" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Raw" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("toggles to the unchanged raw read-only textarea and back", () => {
+    const { loop } = setup();
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Raw" }));
     const out = screen.getByLabelText("Exported loop") as HTMLTextAreaElement;
     expect(out.readOnly).toBe(true);
     expect(out.value).toBe(exportLoop(loop));
+    expect(screen.getByRole("button", { name: "Raw" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Tree" }).getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Tree" }));
+    expect(screen.queryByRole("textbox", { name: "Exported loop" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Exported loop" })).toBeTruthy();
   });
 
   it("imports valid JSON without showing an alert", () => {
@@ -58,14 +77,14 @@ describe("Sharing", () => {
   });
 
   describe("reset", () => {
-    const click = () => fireEvent.click(screen.getByRole("button", { name: "Reset to boom-bap" }));
+    const click = () => fireEvent.click(screen.getByRole("button", { name: "Reset default beat" }));
     afterEach(() => vi.restoreAllMocks());
 
     it("asks first and resets when confirmed", () => {
       const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
       const { onReset } = setup();
       click();
-      expect(confirm).toHaveBeenCalledWith("Replace your loop with the boom-bap beat?");
+      expect(confirm).toHaveBeenCalledWith("Replace your loop with the default beat?");
       expect(onReset).toHaveBeenCalledTimes(1);
     });
 

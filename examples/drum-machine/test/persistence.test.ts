@@ -2,7 +2,16 @@ import { serializeLoop } from "@loops/core";
 import type { Loop } from "@loops/core";
 import { describe, expect, it } from "vitest";
 import { testLoop } from "./fixtures";
-import { exportLoop, importLoop, loadLoop, saveLoop, STORAGE_KEY } from "../src/persistence";
+import {
+  exportLoop,
+  importLoop,
+  loadLoop,
+  loadMutes,
+  MUTE_STORAGE_KEY,
+  saveLoop,
+  saveMutes,
+  STORAGE_KEY,
+} from "../src/persistence";
 import type { KeyValueStore } from "../src/persistence";
 
 function memoryStore(initial: Record<string, string> = {}): KeyValueStore & { data: Record<string, string> } {
@@ -46,6 +55,28 @@ describe("STORAGE_KEY", () => {
     expect(STORAGE_KEY).toBe("loops-demo:loop:v2");
     const old = JSON.stringify(serializeLoop(testLoop()));
     expect(loadLoop(memoryStore({ "loops-demo:loop": old }))).toBeNull();
+  });
+});
+
+describe("saveMutes / loadMutes", () => {
+  it("round-trips a set of muted channels", () => {
+    const store = memoryStore();
+    saveMutes(store, new Set(["kick", "snare"]));
+    expect(JSON.parse(store.data[MUTE_STORAGE_KEY]!).sort()).toEqual(["kick", "snare"]);
+    expect(loadMutes(store)).toEqual(new Set(["kick", "snare"]));
+  });
+
+  it("returns an empty set when nothing is stored", () => {
+    expect(loadMutes(memoryStore())).toEqual(new Set());
+  });
+
+  it("returns an empty set for corrupt stored text", () => {
+    expect(loadMutes(memoryStore({ [MUTE_STORAGE_KEY]: "{nope" }))).toEqual(new Set());
+  });
+
+  it("drops ids that are not in the kit", () => {
+    const store = memoryStore({ [MUTE_STORAGE_KEY]: JSON.stringify(["kick", "cowbell", "nonsense"]) });
+    expect(loadMutes(store)).toEqual(new Set(["kick"]));
   });
 });
 
