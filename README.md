@@ -1,8 +1,6 @@
-<p align="center">
+<h1 align="center">
   <img src="docs/images/loops-readme.jpeg" alt="loops" width="720">
-</p>
-
-# loops
+</h1>
 
 A small toolkit for playing looped beats and patterns in the browser, built on the Web Audio API.
 
