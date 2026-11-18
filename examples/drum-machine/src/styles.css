@@ -42,6 +42,10 @@
     display: grid;
     gap: 1rem;
     overflow-x: auto;
+    /* A scroll container clips at its edge, cutting off focus and playhead rings on the outermost controls.
+       The padding gives them room; the equal negative margin keeps the content aligned with the dial lanes. */
+    padding: 0.5rem;
+    margin: -0.5rem;
   }
   .grid-toolbar {
     display: flex;

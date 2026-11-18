@@ -91,6 +91,12 @@ describe("styles.css", () => {
     expect(css).not.toContain("line-through");
   });
 
+  it("gives the scrolling step grid room for focus and playhead rings without moving its content", () => {
+    const rule = body(".step-grid");
+    expect(rule).toMatch(/padding:\s*0\.5rem/);
+    expect(rule).toMatch(/margin:\s*-0\.5rem/);
+  });
+
   it("loads the Doto font", () => {
     expect(readFileSync(new URL("../src/main.tsx", import.meta.url), "utf8")).toContain("@fontsource-variable/doto");
   });
