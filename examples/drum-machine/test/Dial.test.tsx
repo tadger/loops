@@ -195,6 +195,40 @@ describe("Dial", () => {
 
       expect(container.querySelector('[data-tick="default"]')!.getAttribute("transform")).toBe("rotate(0 18 18)");
     });
+
+    it("places 25%, 50% and 75% ticks a quarter of the way along the same angle mapping, whatever the default", () => {
+      const { container } = render(dial({ value: 0, min: -24, max: 12, defaultValue: 0 }));
+
+      const transformOf = (name: string) => container.querySelector(`[data-tick="${name}"]`)!.getAttribute("transform");
+      expect(transformOf("25")).toBe("rotate(-67.5 18 18)");
+      expect(transformOf("50")).toBe("rotate(0 18 18)");
+      expect(transformOf("75")).toBe("rotate(67.5 18 18)");
+    });
+
+    it("draws only the ticks it is given in place of the quarter ticks", () => {
+      const { container } = render(dial({ min: -24, max: 12, defaultValue: 0, ticks: [-12] }));
+
+      expect(container.querySelector('[data-tick="-12"]')!.getAttribute("transform")).toBe("rotate(-45 18 18)");
+      for (const quarter of ["25", "50", "75"]) expect(container.querySelector(`[data-tick="${quarter}"]`)).toBeNull();
+    });
+
+    it("draws no extra ticks when given an empty list", () => {
+      const { container } = render(dial({ ticks: [] }));
+
+      expect(container.querySelectorAll("line[data-tick]")).toHaveLength(3);
+    });
+
+    it("draws the quarter ticks shorter than the min, max and default ticks", () => {
+      const { container } = render(dial());
+
+      const length = (name: string) => {
+        const line = container.querySelector(`[data-tick="${name}"]`)!;
+        return Number(line.getAttribute("y2")) - Number(line.getAttribute("y1"));
+      };
+      for (const quarter of ["25", "50", "75"]) expect(length(quarter)).toBeLessThan(length("min"));
+      expect(length("max")).toBe(length("min"));
+      expect(length("default")).toBe(length("min"));
+    });
   });
 
   describe("value label visibility", () => {
@@ -308,5 +342,13 @@ describe("Dial", () => {
       expect(screen.getAllByRole("textbox")).toHaveLength(1);
       expect(screen.queryByText("5", { selector: ".dial-value" })).toBeNull();
     });
+  });
+});
+
+describe("Dial theme", () => {
+  it("uses the theme tooltip for the value label", () => {
+    render(dial({ value: 7 }));
+    fireEvent.focus(slider());
+    expect(screen.getByText("7").classList.contains("topcoat-tooltip")).toBe(true);
   });
 });

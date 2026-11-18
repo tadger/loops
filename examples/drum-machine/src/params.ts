@@ -9,6 +9,8 @@ export interface StepParam {
   max: number;
   step: number;
   defaultValue: number;
+  /** Values the dial marks with short ticks, when the quarter points of the range would mean nothing. */
+  ticks?: readonly number[];
   /** Null when the step is off. */
   get(loop: Loop, channel: string, step: number): number | null;
   set(loop: Loop, channel: string, step: number, value: number): Loop;
@@ -53,6 +55,8 @@ export const STEP_PARAMS: readonly StepParam[] = [
     max: toSemitones(RATE_MAX),
     step: 0.1,
     defaultValue: 0,
+    // The octave below; 0 and the range ends are already marked.
+    ticks: [-12],
     get: (loop, channel, step) => {
       const data = getStepData(loop, channel, step);
       return data === null ? null : toSemitones(data.rate);

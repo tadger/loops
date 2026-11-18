@@ -39,7 +39,11 @@ export function App() {
 
   return (
     <main>
-      <h1>loops drum machine</h1>
+      <header className="topcoat-navigation-bar mb-4">
+        <div className="topcoat-navigation-bar__item w-full text-center">
+          <h1 className="topcoat-navigation-bar__title">loops drum machine</h1>
+        </div>
+      </header>
       <TransportProvider clock={audio?.clock ?? inertClock} timer={audio?.timer ?? inertTimer} loop={loop}>
         <Machine
           loop={loop}
@@ -54,7 +58,7 @@ export function App() {
           onSetAllMuted={setAllMuted}
         />
       </TransportProvider>
-      {error !== null && <p role="alert">{error}</p>}
+      {error !== null && <p role="alert" className="topcoat-field__message">{error}</p>}
     </main>
   );
 }

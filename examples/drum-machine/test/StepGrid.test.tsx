@@ -197,3 +197,10 @@ describe("StepGrid", () => {
     expect(screen.getByRole("button", { name: "snare step 1" }).getAttribute("aria-pressed")).toBe("false");
   });
 });
+
+describe("StepGrid theme", () => {
+  it("styles the mute-all button with the theme", () => {
+    render(grid());
+    expect(screen.getByRole("button", { name: "Mute all" }).classList.contains("topcoat-button")).toBe(true);
+  });
+});

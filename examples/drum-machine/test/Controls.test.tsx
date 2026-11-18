@@ -79,3 +79,13 @@ describe("Controls", () => {
     expect(document.querySelector("output")!.textContent).toBe("133");
   });
 });
+
+describe("Controls theme", () => {
+  it("styles the transport with the theme", () => {
+    setup();
+    expect(button("Play").classList.contains("topcoat-button--cta")).toBe(true);
+    expect(button("Pause").classList.contains("topcoat-button")).toBe(true);
+    expect(button("Stop").classList.contains("topcoat-button")).toBe(true);
+    expect(screen.getByRole("slider").classList.contains("topcoat-range")).toBe(true);
+  });
+});

@@ -17,7 +17,7 @@ export function StepGrid({ loop, onToggle, playheadStep, muted, onToggleMute, on
   return (
     <div className="step-grid" role="group" aria-label="Step sequencer">
       <div className="grid-toolbar">
-        <button type="button" onClick={() => onSetAllMuted(!allMuted)}>
+        <button type="button" className="topcoat-button" onClick={() => onSetAllMuted(!allMuted)}>
           {allMuted ? "Unmute all" : "Mute all"}
         </button>
       </div>

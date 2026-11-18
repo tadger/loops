@@ -91,6 +91,8 @@ pnpm --filter drum-machine dev
 
 That starts the example drum machine locally, where you can program a beat, play it back, tweak it live, and export it as JSON to save or share.
 
+The example's styling comes from [`tailwind-topcoat`](https://github.com/tadger/tailwind-topcoat), installed straight from GitHub. While both repos are private, installing needs GitHub HTTPS credentials with access to that repo (for example `gh auth login`, or a stored credential helper); this goes away when they become public, and note that it applies to the whole workspace's `pnpm install`. To iterate on the theme locally, temporarily run `pnpm --filter drum-machine add link:../../../tailwind-topcoat`; don't commit that change. When you're done, `git restore examples/drum-machine/package.json pnpm-lock.yaml` and `pnpm install` put the git version back, and `pnpm --filter drum-machine update tailwind-topcoat` moves the pin to the theme's latest `main`.
+
 ## What this is not (yet)
 
 This is an early-stage toolkit, not a full music production framework. It doesn't do swing or groove timing, chained patterns or song arrangement, MIDI input or output, or ship with any instruments or effects — those are all left to whoever builds on top of it, or may arrive in a later version.

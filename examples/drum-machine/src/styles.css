@@ -1,240 +1,255 @@
+@import "tailwindcss";
+@import "tailwind-topcoat";
+
 :root {
-  font-family: system-ui, sans-serif;
   color-scheme: light dark;
   /* Shared by the step grid and the parameter lanes so their columns line up. */
   --step-label-width: 3.5rem;
   --step-min: 1.5rem;
   --step-gap: 0.25rem;
+  /* --tc-text-muted is too faint on white in light; this stays readable on both surfaces. */
+  --soft-text: color-mix(in srgb, var(--tc-text) 60%, transparent);
+  /* The theme has no syntax colors; these are the app's own, for both schemes. */
+  --json-string: #15803d;
+  --json-number: #1d4ed8;
+  --json-boolean: #b45309;
+  @variant dark {
+    --json-string: #4ade80;
+    --json-number: #60a5fa;
+    --json-boolean: #f59e0b;
+  }
 }
-main {
-  max-width: 60rem;
-  margin: 0 auto;
-  padding: 1rem;
-}
-button,
-textarea,
-input {
-  font: inherit;
-}
-:focus-visible {
-  outline: 3px solid #2563eb;
-  outline-offset: 2px;
-}
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-.step-grid {
-  display: grid;
-  gap: 1rem;
-  overflow-x: auto;
-}
-.grid-toolbar {
-  display: flex;
-  gap: 0.5rem;
-}
-.step-bar {
-  display: grid;
-  gap: 0.375rem;
-}
-.step-bar + .step-bar {
-  margin-top: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #cbd5e1;
-}
-.bar-heading {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #475569;
-}
-.step-row,
-.lane {
-  display: grid;
-  grid-template-columns: var(--step-label-width) repeat(var(--steps, 16), minmax(var(--step-min), 1fr));
-  gap: var(--step-gap);
-  align-items: center;
-}
-.lane + .lane {
-  margin-top: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #cbd5e1;
-}
-.step {
-  aspect-ratio: 1;
-  min-height: var(--step-min);
-  border: 1px solid #888;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-}
-.step[data-beat] {
-  border-color: currentColor;
-}
-.step[aria-pressed="true"] {
-  background: #2563eb;
-  border-color: #1d4ed8;
-}
-.step[data-playhead] {
-  box-shadow: 0 0 0 3px #f59e0b;
-}
-button.step-label {
-  all: unset;
-  font: inherit;
-  cursor: pointer;
-}
-button.step-label[aria-pressed="true"] {
-  text-decoration: line-through;
-}
-.step-row[data-muted] {
-  opacity: 0.45;
-}
-.lanes {
-  display: grid;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  /* Room for the focus ring, which the scroll container would clip; block only, to keep columns aligned. */
-  padding-block: 0.5rem;
-  overflow-x: auto;
-}
-.lane-pickers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-.lane-pickers label {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-.lanes {
-  /* Wider than the step grid's buttons: a dial needs more room to stay grabbable. */
-  --step-min: 2.75rem;
-}
-.dial {
-  position: relative;
-  width: 2.25rem;
-  height: 2.25rem;
-  margin: 0 auto;
-  justify-self: center;
-  touch-action: none;
-}
-.dial svg {
-  width: 100%;
-  height: 100%;
-}
-.dial-face {
-  fill: none;
-  stroke: #888;
-}
-.dial-pointer {
-  stroke: #2563eb;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-.dial svg line[data-tick] {
-  stroke: currentColor;
-  opacity: 0.5;
-}
-.dial[data-disabled] svg {
-  opacity: 0.4;
-}
-.dial input[type="range"] {
-  position: absolute;
-  inset: 0;
-  margin: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-.dial:focus-within {
-  outline: 3px solid #2563eb;
-  outline-offset: 2px;
-  border-radius: 50%;
-}
-.dial-value {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-size: 0.75rem;
-  background: #111827;
-  color: #fff;
-  padding: 0.125rem 0.375rem;
-  border-radius: 4px;
-  pointer-events: none;
-}
-.dial-edit {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 3rem;
-  margin: 0 0 0.125rem;
-  padding: 0.125rem 0.25rem;
-  font-size: 0.75rem;
-  text-align: center;
-  border: 1px solid #2563eb;
-  border-radius: 4px;
-}
-.sharing {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-.sharing textarea {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  margin: 0.5rem 0;
-}
-[role="alert"] {
-  color: #b91c1c;
-}
-.export-toggle {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-.export-toggle button[aria-pressed="true"] {
-  font-weight: 600;
-  text-decoration: underline;
-}
-.json-view {
-  max-height: 20rem;
-  overflow: auto;
-  border: 1px solid #94a3b8;
-  border-radius: 4px;
-  padding: 0.5rem;
-  font-family: ui-monospace, monospace;
-  font-size: 0.875rem;
-}
-.json-children {
-  padding-left: 1.25rem;
-  border-left: 1px dotted #888;
-  margin-left: 0.25rem;
-}
-.json-toggle {
-  all: unset;
-  display: block;
-  cursor: pointer;
-}
-.json-key {
-  color: #6b7280;
-}
-.json-string {
-  color: #15803d;
-}
-.json-number {
-  color: #1d4ed8;
-}
-.json-boolean {
-  color: #b45309;
-}
-.json-null {
-  color: #6b7280;
-  font-style: italic;
+
+@layer components {
+  main {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .step-grid {
+    display: grid;
+    gap: 1rem;
+    overflow-x: auto;
+  }
+  .grid-toolbar {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .step-bar {
+    display: grid;
+    gap: 0.375rem;
+  }
+  .step-bar + .step-bar {
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--tc-border);
+  }
+  .bar-heading {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--tc-text);
+  }
+  .step-row,
+  .lane {
+    display: grid;
+    grid-template-columns: var(--step-label-width) repeat(var(--steps, 16), minmax(var(--step-min), 1fr));
+    gap: var(--step-gap);
+    align-items: center;
+  }
+  .lane + .lane {
+    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--tc-border);
+  }
+  .step {
+    --pad-inset: var(--tc-shadow-inset);
+    aspect-ratio: 1;
+    min-height: var(--step-min);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius);
+    background: var(--tc-surface-raised);
+    box-shadow: var(--pad-inset);
+    cursor: pointer;
+  }
+  .step:hover {
+    background: var(--tc-surface-hover);
+  }
+  .step[data-beat] {
+    border-color: var(--tc-text);
+  }
+  .step[aria-pressed="true"] {
+    --pad-inset: var(--tc-focus-inset);
+    background: var(--tc-cta-bg);
+    border-color: var(--tc-cta-border);
+  }
+  .step[aria-pressed="true"]:hover {
+    background: var(--tc-cta-bg-hover);
+  }
+  .step[data-playhead] {
+    box-shadow: var(--pad-inset), 0 0 0 3px var(--tc-highlight);
+  }
+  /* The pale ring alone is faint on the light page; like the theme's own controls, pair it with the focus border. */
+  .step:focus-visible {
+    border-color: var(--tc-focus-border);
+    outline: 2px solid var(--tc-focus-ring);
+    outline-offset: 1px;
+  }
+  button.step-label:focus-visible {
+    border-radius: var(--tc-radius);
+    outline: 1px solid var(--tc-focus-border);
+    box-shadow: 0 0 0 3px var(--tc-focus-ring);
+  }
+  button.step-label {
+    all: unset;
+    font: inherit;
+    cursor: pointer;
+  }
+  button.step-label[aria-pressed="true"] {
+    text-decoration: line-through;
+  }
+  .step-row[data-muted] {
+    opacity: 0.45;
+  }
+  .lanes {
+    display: grid;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    /* Room for the focus ring, which the scroll container would clip; block only, to keep columns aligned. */
+    padding-block: 0.5rem;
+    overflow-x: auto;
+  }
+  .lane-pickers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .lane-pickers label {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .lanes {
+    /* Wider than the step grid's buttons: a dial needs more room to stay grabbable. */
+    --step-min: 2.75rem;
+  }
+  .dial {
+    position: relative;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0 auto;
+    justify-self: center;
+    touch-action: none;
+  }
+  .dial svg {
+    width: 100%;
+    height: 100%;
+  }
+  .dial-face {
+    fill: none;
+    stroke: var(--tc-border);
+  }
+  .dial-pointer {
+    stroke: var(--tc-cta-bg);
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  .dial svg line[data-tick] {
+    stroke: var(--soft-text);
+  }
+  .dial[data-disabled] svg {
+    opacity: 0.4;
+  }
+  .dial input[type="range"] {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .dial:focus-within {
+    outline: 1px solid var(--tc-focus-border);
+    box-shadow: 0 0 0 3px var(--tc-focus-ring);
+    border-radius: 50%;
+  }
+  .dial-value {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .dial-edit {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3rem;
+    margin: 0 0 0.125rem;
+    padding: 0.125rem 0.25rem;
+    font-size: 0.75rem;
+    text-align: center;
+    background: var(--tc-input-bg);
+    color: var(--tc-text);
+    border: 1px solid var(--tc-focus-border);
+    border-radius: var(--tc-radius);
+  }
+  .sharing {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .sharing textarea {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .json-view {
+    max-height: 20rem;
+    overflow: auto;
+    background: var(--tc-input-bg);
+    border: 1px solid var(--tc-border);
+    border-radius: var(--tc-radius);
+    padding: 0.5rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.875rem;
+  }
+  .json-children {
+    padding-left: 1.25rem;
+    border-left: 1px dotted var(--tc-border);
+    margin-left: 0.25rem;
+  }
+  .json-toggle {
+    all: unset;
+    display: block;
+    cursor: pointer;
+  }
+  .json-toggle:focus-visible {
+    border-radius: var(--tc-radius);
+    outline: 1px solid var(--tc-focus-border);
+    box-shadow: 0 0 0 3px var(--tc-focus-ring);
+  }
+  .json-key {
+    color: var(--soft-text);
+  }
+  .json-string {
+    color: var(--json-string);
+  }
+  .json-number {
+    color: var(--json-number);
+  }
+  .json-boolean {
+    color: var(--json-boolean);
+  }
+  .json-null {
+    color: var(--soft-text);
+    font-style: italic;
+  }
 }

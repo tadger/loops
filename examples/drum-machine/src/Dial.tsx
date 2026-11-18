@@ -11,6 +11,8 @@ export interface DialProps {
   /** Accessible name; also the tooltip-style label shown while interacting. */
   label: string;
   format(value: number): string;
+  /** Values to mark with short ticks; the quarter points of the range when omitted. */
+  ticks?: readonly number[];
   onChange(value: number): void;
 }
 
@@ -43,7 +45,7 @@ function angleDelta(deg: number): number {
   return d;
 }
 
-export function Dial({ value, min, max, step, defaultValue, disabled, label, format, onChange }: DialProps): React.JSX.Element {
+export function Dial({ value, min, max, step, defaultValue, disabled, label, format, ticks, onChange }: DialProps): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const dragRect = useRef<DOMRect | null>(null);
@@ -150,9 +152,13 @@ export function Dial({ value, min, max, step, defaultValue, disabled, label, for
     commitEdit();
   };
 
-  const tick = (at: number, name: string) => (
-    <line data-tick={name} x1="18" y1="3" x2="18" y2="7" transform={`rotate(${angleOf(at, min, max)} 18 18)`} />
+  const tick = (at: number, name: string, inner = 7) => (
+    <line key={name} data-tick={name} x1="18" y1="3" x2="18" y2={inner} transform={`rotate(${angleOf(at, min, max)} 18 18)`} />
   );
+  const marks =
+    ticks === undefined
+      ? [0.25, 0.5, 0.75].map((fraction) => ({ at: min + fraction * (max - min), name: String(fraction * 100) }))
+      : ticks.map((at) => ({ at, name: String(at) }));
 
   return (
     <div
@@ -168,6 +174,7 @@ export function Dial({ value, min, max, step, defaultValue, disabled, label, for
     >
       <svg viewBox="0 0 36 36" aria-hidden="true">
         <circle className="dial-face" cx="18" cy="18" r="15" />
+        {marks.map(({ at, name }) => tick(at, name, 5))}
         {tick(min, "min")}
         {tick(max, "max")}
         {tick(defaultValue, "default")}
@@ -201,7 +208,7 @@ export function Dial({ value, min, max, step, defaultValue, disabled, label, for
           onBlur={onEditBlur}
         />
       )}
-      {showLabel && <span className="dial-value">{format(value)}</span>}
+      {showLabel && <span className="dial-value topcoat-tooltip">{format(value)}</span>}
     </div>
   );
 }

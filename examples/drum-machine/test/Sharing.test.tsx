@@ -96,3 +96,29 @@ describe("Sharing", () => {
     });
   });
 });
+
+describe("Sharing theme", () => {
+  it("uses a button bar for the export view and theme fields for text", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    const tree = screen.getByRole("button", { name: "Tree" });
+    expect(tree.closest(".topcoat-button-bar")).not.toBeNull();
+    expect(tree.classList.contains("topcoat-button-bar__button")).toBe(true);
+    expect(screen.getByLabelText("Import loop JSON").classList.contains("topcoat-textarea")).toBe(true);
+    for (const name of ["Export", "Reset default beat", "Import"]) {
+      expect(screen.getByRole("button", { name }).classList.contains("topcoat-button")).toBe(true);
+    }
+  });
+
+  it("labels the import box with the theme field and shows import errors as an invalid message", () => {
+    setup();
+    const label = screen.getByText("Import loop JSON");
+    expect(label.classList.contains("topcoat-field__label")).toBe(true);
+    expect(label.closest(".topcoat-field")?.contains(screen.getByLabelText("Import loop JSON"))).toBe(true);
+
+    importWith("not json");
+    const alert = screen.getByRole("alert");
+    expect(alert.classList.contains("topcoat-field__message")).toBe(true);
+    expect(alert.classList.contains("topcoat-field__message--invalid")).toBe(true);
+  });
+});

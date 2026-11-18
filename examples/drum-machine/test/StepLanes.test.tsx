@@ -290,3 +290,23 @@ describe("StepLanes", () => {
     expect(slider("kick step 2 timing").disabled).toBe(true);
   });
 });
+
+describe("StepLanes theme", () => {
+  it("styles the lane pickers with the theme", () => {
+    render(lanes());
+    const pickers = screen.getAllByRole("combobox");
+    expect(pickers).toHaveLength(2);
+    for (const picker of pickers) expect(picker.classList.contains("topcoat-select")).toBe(true);
+  });
+
+  it("marks the lane's own ticks on its dials: octaves for pitch, quarters for gain", () => {
+    const pitch = render(lanes({ param: "pitch" }));
+    expect(pitch.container.querySelector('[data-tick="-12"]')).not.toBeNull();
+    expect(pitch.container.querySelector('[data-tick="50"]')).toBeNull();
+    pitch.unmount();
+
+    const gain = render(lanes({ param: "gain" }));
+    expect(gain.container.querySelector('[data-tick="50"]')).not.toBeNull();
+    expect(gain.container.querySelector('[data-tick="-12"]')).toBeNull();
+  });
+});

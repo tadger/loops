@@ -11,18 +11,18 @@ interface ControlsProps {
 export function Controls({ status, loading, tempo, onPlay, onPause, onStop, onTempo }: ControlsProps) {
   return (
     <div className="controls">
-      <button type="button" onClick={onPlay} disabled={loading || status === "playing"}>
+      <button type="button" className="topcoat-button--cta" onClick={onPlay} disabled={loading || status === "playing"}>
         {loading ? "Loading…" : "Play"}
       </button>
-      <button type="button" onClick={onPause} disabled={status !== "playing"}>
+      <button type="button" className="topcoat-button" onClick={onPause} disabled={status !== "playing"}>
         Pause
       </button>
-      <button type="button" onClick={onStop} disabled={status === "stopped"}>
+      <button type="button" className="topcoat-button" onClick={onStop} disabled={status === "stopped"}>
         Stop
       </button>
-      <label>
+      <label className="flex items-center gap-2">
         Tempo: <output>{tempo}</output> bpm
-        <input type="range" min={40} max={200} value={tempo} onChange={(e) => onTempo(Number(e.target.value))} />
+        <input type="range" className="topcoat-range" min={40} max={200} value={tempo} onChange={(e) => onTempo(Number(e.target.value))} />
       </label>
     </div>
   );

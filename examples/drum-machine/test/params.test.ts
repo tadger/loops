@@ -20,6 +20,11 @@ describe("STEP_PARAMS", () => {
     ]);
   });
 
+  it("marks the octave below on pitch and leaves the other lanes on the default quarter ticks", () => {
+    expect(param("pitch").ticks).toEqual([-12]);
+    for (const id of ["gain", "decay", "timing"] as const) expect(param(id).ticks).toBeUndefined();
+  });
+
   it.each(STEP_PARAMS.map((p) => p.id))("%s reads null on an off step and leaves the loop alone when set", (id) => {
     const loop = testLoop();
     const p = param(id);

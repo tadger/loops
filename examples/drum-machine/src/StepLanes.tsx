@@ -31,7 +31,7 @@ export function StepLanes({ loop, channel, param, onChannelChange, onParamChange
       <div className="lane-pickers">
         <label>
           Lane for
-          <select value={channel} onChange={(e) => onChannelChange(e.target.value)}>
+          <select className="topcoat-select" value={channel} onChange={(e) => onChannelChange(e.target.value)}>
             {CHANNELS.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -41,7 +41,7 @@ export function StepLanes({ loop, channel, param, onChannelChange, onParamChange
         </label>
         <label>
           Parameter
-          <select value={active.id} onChange={(e) => onParamChange(e.target.value as StepParam["id"])}>
+          <select className="topcoat-select" value={active.id} onChange={(e) => onParamChange(e.target.value as StepParam["id"])}>
             {STEP_PARAMS.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
@@ -70,6 +70,7 @@ export function StepLanes({ loop, channel, param, onChannelChange, onParamChange
                 disabled={current === null}
                 label={`${channel} step ${step + 1} ${active.label}`}
                 format={active.format}
+                ticks={active.ticks}
                 onChange={(v) => onEdit(active.set(loop, channel, step, v))}
               />
             );

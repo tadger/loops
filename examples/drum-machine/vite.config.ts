@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 // The workspace packages export TypeScript source; Vite compiles it through the workspace symlinks.
-export default defineConfig({ plugins: [react()] });
+export default defineConfig({ plugins: [react(), tailwindcss()] });
