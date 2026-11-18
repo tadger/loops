@@ -229,7 +229,7 @@ importers:
         version: 31.0.1
       tailwind-topcoat:
         specifier: git+https://github.com/tadger/tailwind-topcoat.git#main
-        version: git+https://github.com/tadger/tailwind-topcoat.git#262c7d3d146b2e646238b1ca8f7bea795f6167c6
+        version: git+https://github.com/tadger/tailwind-topcoat.git#9d4d0a60dca0b2fbab8b7abc0b3a5e205a8b32fe
       tailwindcss:
         specifier: ~4.3.5
         version: 4.3.5
@@ -1025,8 +1025,8 @@ packages:
   std-env@4.3.0:
     resolution: {integrity: sha512-OtU/EgQ1kIm5KwqQpBC6ZEMXrZRui11w8zgfTWp8cdO9B8OaPsbA8bTHO2P+HNo1VlUTGMVBwPhydu6poeXiag==}
 
-  tailwind-topcoat@git+https://github.com/tadger/tailwind-topcoat.git#262c7d3d146b2e646238b1ca8f7bea795f6167c6:
-    resolution: {commit: 262c7d3d146b2e646238b1ca8f7bea795f6167c6, repo: https://github.com/tadger/tailwind-topcoat.git, type: git}
+  tailwind-topcoat@git+https://github.com/tadger/tailwind-topcoat.git#9d4d0a60dca0b2fbab8b7abc0b3a5e205a8b32fe:
+    resolution: {commit: 9d4d0a60dca0b2fbab8b7abc0b3a5e205a8b32fe, repo: https://github.com/tadger/tailwind-topcoat.git, type: git}
     version: 0.1.0
 
   tailwindcss@4.3.5:
@@ -1745,7 +1745,7 @@ snapshots:
 
   std-env@4.3.0: {}
 
-  tailwind-topcoat@git+https://github.com/tadger/tailwind-topcoat.git#262c7d3d146b2e646238b1ca8f7bea795f6167c6: {}
+  tailwind-topcoat@git+https://github.com/tadger/tailwind-topcoat.git#9d4d0a60dca0b2fbab8b7abc0b3a5e205a8b32fe: {}
 
   tailwindcss@4.3.5: {}
 
