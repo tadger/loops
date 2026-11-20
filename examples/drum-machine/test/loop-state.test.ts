@@ -3,12 +3,14 @@ import type { Loop } from "@loops/core";
 import { describe, expect, it } from "vitest";
 import {
   addBar,
+  getDuration,
   getNudge,
   getStepData,
   isStepOn,
   MAX_NUDGE,
   nudgeOf,
   removeBar,
+  setDuration,
   setNudge,
   setStepData,
   stepCount,
@@ -384,5 +386,58 @@ describe("bars", () => {
     expect(stepsInBar(loop, 0)).toBe(3);
     expect(stepsInBar(loop, 1)).toBe(1);
     expect(stepsInBar(loop, 2)).toBe(0);
+  });
+});
+
+describe("duration", () => {
+  // kick is lit at steps 0, 7 and 10 of a 384-tick bar; step 7 starts at tick 168.
+  const sustained = (duration: number) => setDuration(testLoop(), "kick", 7, duration);
+
+  it("reads null on an off step, undefined on a plain step and the ticks on a sustained one", () => {
+    expect(getDuration(testLoop(), "kick", 1)).toBeNull();
+    expect(getDuration(testLoop(), "kick", 7)).toBeUndefined();
+    expect(getDuration(sustained(40), "kick", 7)).toBe(40);
+  });
+
+  it("holds a note for the given ticks without touching its position or data", () => {
+    const loop = setStepData(testLoop(), "kick", 7, { gain: 0.5 });
+    const next = setDuration(loop, "kick", 7, 40);
+    expect(next.channels.kick!.find((n) => n.at === 168)).toEqual({ at: 168, duration: 40, data: { gain: 0.5 } });
+    expect(parseLoop(next).ok).toBe(true);
+  });
+
+  it("rounds to whole ticks and keeps at least one", () => {
+    expect(getDuration(sustained(40.6), "kick", 7)).toBe(41);
+    expect(getDuration(sustained(-5), "kick", 7)).toBe(1);
+  });
+
+  it("stops at the loop's end, so the note still fits", () => {
+    expect(getDuration(sustained(9999), "kick", 7)).toBe(384 - 168);
+    expect(parseLoop(sustained(9999)).ok).toBe(true);
+  });
+
+  it("removes the duration when given undefined, so the whole sample plays", () => {
+    const back = setDuration(sustained(40), "kick", 7, undefined);
+    expect(back.channels.kick).toEqual(testLoop().channels.kick);
+  });
+
+  it("returns the same loop for an off step, a missing channel, NaN or no change", () => {
+    const loop = sustained(40);
+    expect(setDuration(loop, "kick", 1, 40)).toBe(loop);
+    expect(setDuration(loop, "cowbell", 7, 40)).toBe(loop);
+    expect(setDuration(loop, "kick", 7, Number.NaN)).toBe(loop);
+    expect(setDuration(loop, "kick", 7, 40)).toBe(loop);
+    const plain = testLoop();
+    expect(setDuration(plain, "kick", 7, undefined)).toBe(plain);
+  });
+
+  it("does not mutate its input", () => {
+    const loop = deepFreeze(testLoop());
+    expect(() => setDuration(loop, "kick", 7, 40)).not.toThrow();
+  });
+
+  it("is kept when the step's other data changes", () => {
+    const next = setStepData(sustained(40), "kick", 7, { decay: 0.1 });
+    expect(getDuration(next, "kick", 7)).toBe(40);
   });
 });

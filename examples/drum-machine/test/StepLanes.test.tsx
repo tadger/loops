@@ -81,7 +81,7 @@ describe("StepLanes", () => {
     const { rerender } = render(lanes({ onParamChange }));
 
     const select = screen.getByLabelText<HTMLSelectElement>("Parameter");
-    expect([...select.options].map((o) => o.value)).toEqual(["gain", "decay", "pitch", "timing"]);
+    expect([...select.options].map((o) => o.value)).toEqual(["gain", "decay", "length", "pitch", "timing"]);
     expect(select.value).toBe("gain");
     fireEvent.change(select, { target: { value: "timing" } });
     expect(onParamChange).toHaveBeenCalledExactlyOnceWith("timing");

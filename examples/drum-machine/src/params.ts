@@ -1,9 +1,13 @@
 import type { Loop } from "@loops/core";
-import { MAX_NUDGE, getNudge, getStepData, setNudge, setStepData } from "./loop-state";
+import { MAX_NUDGE, getDuration, getNudge, getStepData, setDuration, setNudge, setStepData } from "./loop-state";
 import { DECAY_MAX, DECAY_MIN, RATE_MAX, RATE_MIN } from "./step-data";
 
+/** The length dial runs from a quarter of a step to one 4/4 bar; its top end means no duration. */
+const LENGTH_MIN = 6;
+const LENGTH_MAX = 384;
+
 export interface StepParam {
-  id: "gain" | "decay" | "pitch" | "timing";
+  id: "gain" | "decay" | "length" | "pitch" | "timing";
   label: string;
   min: number;
   max: number;
@@ -47,6 +51,22 @@ export const STEP_PARAMS: readonly StepParam[] = [
     },
     set: (loop, channel, step, value) => setStepData(loop, channel, step, { decay: value / 1000 }),
     format: (value) => (value >= DECAY_MAX * 1000 ? "off" : `${value} ms`),
+  },
+  {
+    id: "length",
+    label: "length",
+    min: LENGTH_MIN,
+    max: LENGTH_MAX,
+    step: LENGTH_MIN,
+    defaultValue: LENGTH_MAX,
+    // A plain step has no duration. An imported one past the dial's range reads as the longest length, not off.
+    get: (loop, channel, step) => {
+      const duration = getDuration(loop, channel, step);
+      if (duration === null) return null;
+      return duration === undefined ? LENGTH_MAX : clamp(duration, LENGTH_MIN, LENGTH_MAX - 1);
+    },
+    set: (loop, channel, step, value) => setDuration(loop, channel, step, value >= LENGTH_MAX ? undefined : value),
+    format: (value) => (value >= LENGTH_MAX ? "off" : `${value} ticks`),
   },
   {
     id: "pitch",

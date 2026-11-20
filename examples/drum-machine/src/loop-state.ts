@@ -96,6 +96,30 @@ export function setStepData(loop: Loop, channel: string, step: number, patch: Pa
   return setChannel(loop, channel, notesOf(loop, channel).map((n) => (n === note ? edited : n)));
 }
 
+/** Null when the step is off; undefined when the note has no duration and so plays its whole sample. */
+export function getDuration(loop: Loop, channel: string, step: number): number | null | undefined {
+  const note = noteAt(loop, channel, step);
+  return note === undefined ? null : note.duration;
+}
+
+/**
+ * Holds a note for `duration` ticks, or releases it to play its whole sample when undefined. A held note must
+ * fit the loop (see setNudge), so the length stops at the loop's end.
+ */
+export function setDuration(loop: Loop, channel: string, step: number, duration: number | undefined): Loop {
+  const note = noteAt(loop, channel, step);
+  if (note === undefined || note.duration === duration) return loop;
+  const { duration: _old, ...rest } = note;
+  let edited: Note = rest;
+  if (duration !== undefined) {
+    if (!Number.isFinite(duration)) return loop;
+    const fitted = Math.max(1, Math.min(Math.round(duration), loopLength(loop) - note.at));
+    if (fitted === note.duration) return loop;
+    edited = { ...rest, duration: fitted };
+  }
+  return setChannel(loop, channel, notesOf(loop, channel).map((n) => (n === note ? edited : n)));
+}
+
 /**
  * Rebuilds every channel for a loop with `bars` bars. `newOwner` maps a note's owner step to its new owner step,
  * or to null to drop it. A note keeps its nudge, so a first-beat step nudged early (stored wrapped at the loop's

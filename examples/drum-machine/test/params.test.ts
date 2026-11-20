@@ -2,7 +2,7 @@ import type { Loop } from "@loops/core";
 import { describe, expect, it } from "vitest";
 import { STEP_PARAMS } from "../src/params";
 import type { StepParam } from "../src/params";
-import { MAX_NUDGE, getNudge, getStepData, isStepOn, setNudge, setStepData } from "../src/loop-state";
+import { MAX_NUDGE, getDuration, getNudge, getStepData, isStepOn, setDuration, setNudge, setStepData } from "../src/loop-state";
 import { testLoop } from "./fixtures";
 
 const param = (id: StepParam["id"]) => STEP_PARAMS.find((p) => p.id === id)!;
@@ -11,10 +11,11 @@ const ON = 7;
 const OFF = 1;
 
 describe("STEP_PARAMS", () => {
-  it("lists gain, decay, pitch and timing with their ranges", () => {
+  it("lists gain, decay, length, pitch and timing with their ranges", () => {
     expect(STEP_PARAMS.map((p) => [p.id, p.min, p.max, p.step, p.defaultValue])).toEqual([
       ["gain", 0, 1, 0.01, 1],
       ["decay", 20, 2000, 10, 2000],
+      ["length", 6, 384, 6, 384],
       ["pitch", -24, 12, 0.1, 0],
       ["timing", -11, 11, 1, 0],
     ]);
@@ -22,7 +23,7 @@ describe("STEP_PARAMS", () => {
 
   it("marks the octave below on pitch and leaves the other lanes on the default quarter ticks", () => {
     expect(param("pitch").ticks).toEqual([-12]);
-    for (const id of ["gain", "decay", "timing"] as const) expect(param(id).ticks).toBeUndefined();
+    for (const id of ["gain", "decay", "length", "timing"] as const) expect(param(id).ticks).toBeUndefined();
   });
 
   it.each(STEP_PARAMS.map((p) => p.id))("%s reads null on an off step and leaves the loop alone when set", (id) => {
@@ -41,6 +42,35 @@ describe("STEP_PARAMS", () => {
       expect(() => p.set(loop, "kick", ON, 1e9)).not.toThrow();
       expect(() => p.set(loop, "kick", ON, -1e9)).not.toThrow();
     }
+  });
+
+  describe("length", () => {
+    const length = param("length");
+    it("reads off for a plain step and the ticks for a sustained one", () => {
+      const loop = testLoop();
+      expect(length.get(loop, "kick", ON)).toBe(384);
+      expect(length.format(384)).toBe("off");
+      const held = length.set(loop, "kick", ON, 48);
+      expect(length.get(held, "kick", ON)).toBe(48);
+      expect(getDuration(held, "kick", ON)).toBe(48);
+      expect(length.format(48)).toBe("48 ticks");
+    });
+
+    it("turns off at the top of the dial, dropping the duration", () => {
+      const held = length.set(testLoop(), "kick", ON, 48);
+      expect(getDuration(length.set(held, "kick", ON, 384), "kick", ON)).toBeUndefined();
+    });
+
+    it("shows an imported duration past the dial's range as the longest length, not as off", () => {
+      const loop = setDuration(testLoop(), "kick", 0, 384);
+      expect(length.get(loop, "kick", 0)).toBe(383);
+      expect(length.format(383)).toBe("383 ticks");
+    });
+
+    it("clamps a length to the room left in the loop", () => {
+      const held = length.set(testLoop(), "kick", ON, 380);
+      expect(length.get(held, "kick", ON)).toBe(384 - 168);
+    });
   });
 
   describe("gain", () => {
