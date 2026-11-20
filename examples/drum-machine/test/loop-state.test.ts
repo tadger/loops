@@ -3,12 +3,14 @@ import type { Loop } from "@loops/core";
 import { describe, expect, it } from "vitest";
 import {
   addBar,
+  copyBar,
   getDuration,
   getNudge,
   getStepData,
   isStepOn,
   MAX_NUDGE,
   nudgeOf,
+  pasteBar,
   removeBar,
   setDuration,
   setNudge,
@@ -439,5 +441,120 @@ describe("duration", () => {
   it("is kept when the step's other data changes", () => {
     const next = setStepData(sustained(40), "kick", 7, { decay: 0.1 });
     expect(getDuration(next, "kick", 7)).toBe(40);
+  });
+});
+
+describe("copying and pasting a bar", () => {
+  const twoBars = (channels: Loop["channels"]): Loop => ({ version: 1, bars: 2, beatsPerBar: 4, tempo: 92, channels });
+  // Bar 0 has a plain kick, a nudged and shaped snare, and a held bass; bar 1 has a hihat only.
+  const loop = (): Loop =>
+    twoBars({
+      kick: [{ at: 0 }],
+      snare: [{ at: 4 * STEP_TICKS + 3, data: { gain: 0.5, rate: 0.5 } }],
+      bass: [{ at: 8 * STEP_TICKS, duration: 40 }],
+      hihat: [{ at: 20 * STEP_TICKS }],
+    });
+
+  it("copies every channel's steps in the bar, relative to the bar, keeping each step's shape", () => {
+    expect(copyBar(loop(), 0)).toEqual({
+      stepsPerBar: 16,
+      channels: {
+        kick: [{ step: 0, nudge: 0 }],
+        snare: [{ step: 4, nudge: 3, data: { gain: 0.5, rate: 0.5 } }],
+        bass: [{ step: 8, nudge: 0, duration: 40 }],
+      },
+    });
+    expect(copyBar(loop(), 1).channels).toEqual({ hihat: [{ step: 4, nudge: 0 }] });
+  });
+
+  it("pastes into another bar with the steps, nudges, data and durations intact", () => {
+    const base = loop();
+    const next = pasteBar(base, 1, copyBar(base, 0));
+    expect(next.channels.kick).toEqual([{ at: 0 }, { at: 16 * STEP_TICKS }]);
+    expect(next.channels.snare).toEqual([
+      { at: 4 * STEP_TICKS + 3, data: { gain: 0.5, rate: 0.5 } },
+      { at: 20 * STEP_TICKS + 3, data: { gain: 0.5, rate: 0.5 } },
+    ]);
+    expect(next.channels.bass).toEqual([
+      { at: 8 * STEP_TICKS, duration: 40 },
+      { at: 24 * STEP_TICKS, duration: 40 },
+    ]);
+    expect(parseLoop(next).ok).toBe(true);
+  });
+
+  it("replaces what the bar had, in every channel, and leaves the other bar alone", () => {
+    const base = loop();
+    const next = pasteBar(base, 1, copyBar(base, 0));
+    expect(next.channels.hihat).toEqual([]);
+    expect(next.channels.kick![0]).toEqual({ at: 0 });
+    expect(pasteBar(base, 0, copyBar(base, 1)).channels).toEqual({
+      kick: [],
+      snare: [],
+      bass: [],
+      hihat: [{ at: 20 * STEP_TICKS }, { at: 4 * STEP_TICKS }].sort((a, b) => a.at - b.at),
+    });
+  });
+
+  it("clears a bar when the copy was an empty bar", () => {
+    const base = loop();
+    const empty = copyBar(twoBars({ kick: [] }), 0);
+    expect(empty.channels).toEqual({});
+    const next = pasteBar(base, 0, empty);
+    expect(Object.values(next.channels).flat().filter((n) => n.at < 16 * STEP_TICKS)).toEqual([]);
+    expect(next.channels.hihat).toEqual(base.channels.hihat);
+  });
+
+  it("is unchanged by pasting a bar onto itself", () => {
+    const base = loop();
+    expect(pasteBar(base, 0, copyBar(base, 0))).toEqual(base);
+  });
+
+  it("moves a first-beat step nudged early with its bar, wrapping at the loop's end for the first bar", () => {
+    // Bar 1's first step nudged 5 early sits at tick 379; bar 0's is stored wrapped at the loop's end.
+    const base = twoBars({ kick: [{ at: 16 * STEP_TICKS - 5 }] });
+    const intoFirst = pasteBar(base, 0, copyBar(base, 1));
+    expect(intoFirst.channels.kick).toEqual([{ at: 16 * STEP_TICKS - 5 }, { at: 32 * STEP_TICKS - 5 }]);
+    expect(copyBar(intoFirst, 0).channels.kick).toEqual([{ step: 0, nudge: -5 }]);
+    expect(parseLoop(intoFirst).ok).toBe(true);
+  });
+
+  it("trims a held note's length to the loop's end", () => {
+    const base = twoBars({ kick: [{ at: 15 * STEP_TICKS, duration: 40 }] });
+    const next = pasteBar(base, 1, copyBar(base, 0));
+    expect(next.channels.kick).toEqual([
+      { at: 15 * STEP_TICKS, duration: 40 },
+      { at: 31 * STEP_TICKS, duration: 24 },
+    ]);
+    expect(parseLoop(next).ok).toBe(true);
+  });
+
+  it("never wraps a held note: pasted on step 0, an early nudge becomes on the grid", () => {
+    // Bar 1's first step is held and nudged 5 early (tick 379); a held note can't wrap, so on bar 0 it starts at 0.
+    const base = twoBars({ kick: [{ at: 16 * STEP_TICKS - 5, duration: 20 }] });
+    const next = pasteBar(base, 0, copyBar(base, 1));
+    expect(next.channels.kick).toEqual([
+      { at: 0, duration: 20 },
+      { at: 16 * STEP_TICKS - 5, duration: 20 },
+    ]);
+    expect(parseLoop(next).ok).toBe(true);
+  });
+
+  it("returns the same loop for a bar that does not exist or a copy from a different bar size", () => {
+    const base = loop();
+    const clip = copyBar(base, 0);
+    expect(pasteBar(base, 2, clip)).toBe(base);
+    expect(pasteBar(base, -1, clip)).toBe(base);
+    expect(pasteBar(base, 1.5, clip)).toBe(base);
+    expect(pasteBar(base, 1, { ...clip, stepsPerBar: 12 })).toBe(base);
+  });
+
+  it("keeps the copy as it was, whatever happens to the loop afterwards", () => {
+    const base = loop();
+    const clip = copyBar(base, 0);
+    const before = structuredClone(clip);
+    toggleStep(base, "kick", 0);
+    setStepData(base, "snare", 4, { gain: 1 });
+    expect(clip).toEqual(before);
+    expect(() => pasteBar(deepFreeze(loop()), 1, deepFreeze(clip))).not.toThrow();
   });
 });

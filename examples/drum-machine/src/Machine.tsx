@@ -9,7 +9,8 @@ import { Controls } from "./Controls";
 import { Sharing } from "./Sharing";
 import { StepGrid } from "./StepGrid";
 import { StepLanes } from "./StepLanes";
-import { addBar, CHANNELS, removeBar, STEP_TICKS, toggleStep } from "./loop-state";
+import { addBar, CHANNELS, copyBar, pasteBar, removeBar, STEP_TICKS, stepsPerBar, toggleStep } from "./loop-state";
+import type { BarClip } from "./loop-state";
 import type { StepParam } from "./params";
 
 interface MachineProps {
@@ -42,6 +43,7 @@ export function Machine({
   const loopApplied = useTransportState((s) => s.loop !== null);
   const [step, setStep] = useState<number | null>(null);
   const [laneChannel, setLaneChannel] = useState<string>(CHANNELS[0]);
+  const [clip, setClip] = useState<BarClip | null>(null);
   const [laneParam, setLaneParam] = useState<StepParam["id"]>("gain");
 
   usePlayhead((position) => setStep(position === null ? null : Math.floor(position.tick / STEP_TICKS)));
@@ -81,6 +83,9 @@ export function Machine({
         onSetAllMuted={onSetAllMuted}
         onAddBar={() => onEdit(addBar(loop))}
         onRemoveBar={(bar) => onEdit(removeBar(loop, bar))}
+        canPaste={clip !== null && clip.stepsPerBar === stepsPerBar(loop)}
+        onCopyBar={(bar) => setClip(copyBar(loop, bar))}
+        onPasteBar={(bar) => clip !== null && onEdit(pasteBar(loop, bar, clip))}
       />
       <StepLanes
         loop={loop}

@@ -121,6 +121,15 @@ export function setDuration(loop: Loop, channel: string, step: number, duration:
 }
 
 /**
+ * Puts a note at `at` in a loop of `length` ticks. A sustained note never wraps (see setNudge), so an early nudge
+ * past the start puts it on 0 instead, and its duration stops at the loop's end.
+ */
+function settle(note: Note, at: number, length: number): Note {
+  if (at < 0) at = note.duration === undefined ? at + length : 0;
+  return note.duration === undefined ? { ...note, at } : { ...note, at, duration: Math.min(note.duration, length - at) };
+}
+
+/**
  * Rebuilds every channel for a loop with `bars` bars. `newOwner` maps a note's owner step to its new owner step,
  * or to null to drop it. A note keeps its nudge, so a first-beat step nudged early (stored wrapped at the loop's
  * end) wraps again at the new end.
@@ -134,10 +143,7 @@ function rebuild(loop: Loop, bars: number, newOwner: (owner: number) => number |
       const unwrapped = Math.round(note.at / STEP_TICKS);
       const owner = newOwner(unwrapped % steps);
       if (owner === null) continue;
-      let at = owner * STEP_TICKS + (note.at - unwrapped * STEP_TICKS);
-      // A sustained note never wraps (see setNudge), so an early nudge past the start is dropped instead.
-      if (at < 0) at = note.duration === undefined ? at + length : 0;
-      moved.push(note.duration === undefined ? { ...note, at } : { ...note, at, duration: Math.min(note.duration, length - at) });
+      moved.push(settle(note, owner * STEP_TICKS + (note.at - unwrapped * STEP_TICKS), length));
     }
     return [channel, moved.sort((a, b) => a.at - b.at)] as const;
   });
@@ -173,4 +179,50 @@ export function stepsInBar(loop: Loop, bar: number): number {
     count += owned.size;
   }
   return count;
+}
+
+/** A note in a bar clip: its step within the bar, and its offset from that step's grid line. */
+export type ClippedNote = Omit<Note, "at"> & { step: number; nudge: number };
+
+/** A bar's steps, kept apart from the loop so they can be pasted into any bar of the same size. */
+export interface BarClip {
+  stepsPerBar: number;
+  /** Only the channels that have a step in the bar. */
+  channels: Record<string, ClippedNote[]>;
+}
+
+function ownedBy(loop: Loop, note: Note, bar: number): boolean {
+  return Math.floor(stepOf(loop, note.at) / stepsPerBar(loop)) === bar;
+}
+
+/** Copies every channel's steps in the bar; a bar that doesn't exist gives an empty clip. */
+export function copyBar(loop: Loop, bar: number): BarClip {
+  const perBar = stepsPerBar(loop);
+  const channels = Object.entries(loop.channels)
+    .map(([channel, notes]) => {
+      const clipped = notes
+        .filter((note) => ownedBy(loop, note, bar))
+        .map(({ at, ...rest }): ClippedNote => ({ ...structuredClone(rest), step: stepOf(loop, at) % perBar, nudge: nudgeOf(at) }));
+      return [channel, clipped] as const;
+    })
+    .filter(([, clipped]) => clipped.length > 0);
+  return { stepsPerBar: perBar, channels: Object.fromEntries(channels) };
+}
+
+/** Replaces the bar's steps, in every channel, with the clip's. */
+export function pasteBar(loop: Loop, bar: number, clip: BarClip): Loop {
+  const perBar = stepsPerBar(loop);
+  if (!Number.isInteger(bar) || bar < 0 || bar >= loop.bars || clip.stepsPerBar !== perBar) return loop;
+  const length = loopLength(loop);
+  let next = loop;
+  for (const channel of new Set([...Object.keys(loop.channels), ...Object.keys(clip.channels)])) {
+    const kept = notesOf(loop, channel).filter((note) => !ownedBy(loop, note, bar));
+    const clipped = Object.hasOwn(clip.channels, channel) ? clip.channels[channel]! : [];
+    if (clipped.length === 0 && kept.length === notesOf(loop, channel).length) continue;
+    const added = clipped.map(({ step, nudge, ...rest }) =>
+      settle({ ...structuredClone(rest), at: 0 }, (bar * perBar + step) * STEP_TICKS + nudge, length),
+    );
+    next = setChannel(next, channel, [...kept, ...added]);
+  }
+  return next;
 }

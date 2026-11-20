@@ -25,6 +25,9 @@ function grid(overrides: Partial<StepGridProps> = {}) {
       onSetAllMuted={noop}
       onAddBar={noop}
       onRemoveBar={noop}
+      canPaste={false}
+      onCopyBar={noop}
+      onPasteBar={noop}
       {...overrides}
     />
   );
@@ -313,5 +316,72 @@ describe("StepGrid focus after removing a bar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove bar 1" }));
     fireEvent.click(within(document.querySelector("dialog")!).getByRole("button", { name: "Remove bar" }));
     expect(focusedName()).toBe("Add bar");
+  });
+});
+
+describe("StepGrid copy and paste", () => {
+  const twoBars = (): Loop => ({ ...testLoop(), bars: 2 });
+  // The grid has a dialog for removing and, after it, one for replacing; this is the replace one.
+  const dialog = () => document.querySelectorAll("dialog")[1]!;
+  const open = () => document.querySelector("dialog[open]");
+  const paste = (bar: number) => screen.getByRole("button", { name: `Paste into bar ${bar}` }) as HTMLButtonElement;
+
+  it("gives each bar a Copy button that copies that bar", () => {
+    const onCopyBar = vi.fn();
+    render(grid({ loop: twoBars(), onCopyBar }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy bar 2" }));
+    expect(onCopyBar).toHaveBeenCalledExactlyOnceWith(1);
+    fireEvent.click(screen.getByRole("button", { name: "Copy bar 1" }));
+    expect(onCopyBar).toHaveBeenLastCalledWith(0);
+  });
+
+  it("disables every Paste button until something is copied", () => {
+    const off = render(grid({ loop: twoBars() }));
+    expect(paste(1).disabled).toBe(true);
+    expect(paste(2).disabled).toBe(true);
+    off.unmount();
+    render(grid({ loop: twoBars(), canPaste: true }));
+    expect(paste(1).disabled).toBe(false);
+    expect(paste(2).disabled).toBe(false);
+  });
+
+  it("pastes into an empty bar straight away", () => {
+    const onPasteBar = vi.fn();
+    render(grid({ loop: twoBars(), canPaste: true, onPasteBar }));
+    fireEvent.click(paste(2));
+    expect(onPasteBar).toHaveBeenCalledExactlyOnceWith(1);
+    expect(dialog().hasAttribute("open")).toBe(false);
+  });
+
+  it("asks before replacing a bar that has steps, naming the bar and the count", () => {
+    const onPasteBar = vi.fn();
+    const loop = twoBars();
+    const count = stepsInBar(loop, 0);
+    render(grid({ loop, canPaste: true, onPasteBar }));
+    fireEvent.click(paste(1));
+    expect(screen.getByRole("dialog", { name: "Replace bar 1?" })).toBe(dialog());
+    expect(open()).toBe(dialog());
+    expect(screen.getByText(`Bar 1 has ${count} steps. Pasting replaces them.`)).toBeTruthy();
+    expect(onPasteBar).not.toHaveBeenCalled();
+  });
+
+  it("says 1 step, not 1 steps", () => {
+    render(grid({ loop: { ...twoBars(), channels: { kick: [{ at: 0 }] } }, canPaste: true }));
+    fireEvent.click(paste(1));
+    expect(screen.getByText("Bar 1 has 1 step. Pasting replaces it.")).toBeTruthy();
+  });
+
+  it("closes on Cancel without pasting, and pastes into that bar on the confirm button", () => {
+    const onPasteBar = vi.fn();
+    render(grid({ loop: twoBars(), canPaste: true, onPasteBar }));
+    fireEvent.click(paste(1));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(dialog().hasAttribute("open")).toBe(false);
+    expect(onPasteBar).not.toHaveBeenCalled();
+
+    fireEvent.click(paste(1));
+    fireEvent.click(within(dialog()).getByRole("button", { name: "Replace" }));
+    expect(onPasteBar).toHaveBeenCalledExactlyOnceWith(0);
+    expect(dialog().hasAttribute("open")).toBe(false);
   });
 });

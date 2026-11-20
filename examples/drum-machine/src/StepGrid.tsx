@@ -12,6 +12,10 @@ export interface StepGridProps {
   onSetAllMuted(muted: boolean): void;
   onAddBar(): void;
   onRemoveBar(bar: number): void;
+  /** Whether a bar has been copied and fits this loop. */
+  canPaste: boolean;
+  onCopyBar(bar: number): void;
+  onPasteBar(bar: number): void;
 }
 
 export function StepGrid({
@@ -23,8 +27,12 @@ export function StepGrid({
   onSetAllMuted,
   onAddBar,
   onRemoveBar,
+  canPaste,
+  onCopyBar,
+  onPasteBar,
 }: StepGridProps): React.JSX.Element {
   const [pendingBar, setPendingBar] = useState<number | null>(null);
+  const [pendingPaste, setPendingPaste] = useState<number | null>(null);
   const removeButtons = useRef<Array<HTMLButtonElement | null>>([]);
   const addButton = useRef<HTMLButtonElement>(null);
   const focusAfterRemove = useRef<number | null>(null);
@@ -43,6 +51,8 @@ export function StepGrid({
   // A removal that shrank the loop under an open prompt leaves nothing to confirm.
   const pending = pendingBar !== null && pendingBar < loop.bars ? pendingBar : null;
   const pendingSteps = pending === null ? 0 : stepsInBar(loop, pending);
+  const replacing = pendingPaste !== null && pendingPaste < loop.bars ? pendingPaste : null;
+  const replacedSteps = replacing === null ? 0 : stepsInBar(loop, replacing);
 
   const removeNow = (bar: number) => {
     focusAfterRemove.current = bar;
@@ -51,6 +61,10 @@ export function StepGrid({
   const requestRemove = (bar: number) => {
     if (stepsInBar(loop, bar) === 0) removeNow(bar);
     else setPendingBar(bar);
+  };
+  const requestPaste = (bar: number) => {
+    if (stepsInBar(loop, bar) === 0) onPasteBar(bar);
+    else setPendingPaste(bar);
   };
   return (
     <div className="step-grid" role="group" aria-label="Step sequencer">
@@ -74,18 +88,32 @@ export function StepGrid({
             <div className="bar-heading" id={`step-bar-${bar}-heading`}>
               Bar {bar + 1}
             </div>
-            <button
-              type="button"
-              className="topcoat-button"
-              ref={(el) => {
-                removeButtons.current[bar] = el;
-              }}
-              aria-label={`Remove bar ${bar + 1}`}
-              disabled={loop.bars === 1}
-              onClick={() => requestRemove(bar)}
-            >
-              Remove
-            </button>
+            <div className="flex gap-2">
+              <button type="button" className="topcoat-button" aria-label={`Copy bar ${bar + 1}`} onClick={() => onCopyBar(bar)}>
+                Copy
+              </button>
+              <button
+                type="button"
+                className="topcoat-button"
+                aria-label={`Paste into bar ${bar + 1}`}
+                disabled={!canPaste}
+                onClick={() => requestPaste(bar)}
+              >
+                Paste
+              </button>
+              <button
+                type="button"
+                className="topcoat-button"
+                ref={(el) => {
+                  removeButtons.current[bar] = el;
+                }}
+                aria-label={`Remove bar ${bar + 1}`}
+                disabled={loop.bars === 1}
+                onClick={() => requestRemove(bar)}
+              >
+                Remove
+              </button>
+            </div>
           </div>
           {CHANNELS.map((channel) => (
             <div className="step-row" key={channel} data-muted={muted.has(channel) ? "" : undefined}>
@@ -127,6 +155,18 @@ export function StepGrid({
         onCancel={() => setPendingBar(null)}
       >
         {`Bar ${(pending ?? 0) + 1} has ${pendingSteps} ${pendingSteps === 1 ? "step" : "steps"}. Removing it deletes ${pendingSteps === 1 ? "it" : "them"}.`}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={replacing !== null}
+        title={`Replace bar ${(replacing ?? 0) + 1}?`}
+        confirmLabel="Replace"
+        onConfirm={() => {
+          if (replacing !== null) onPasteBar(replacing);
+          setPendingPaste(null);
+        }}
+        onCancel={() => setPendingPaste(null)}
+      >
+        {`Bar ${(replacing ?? 0) + 1} has ${replacedSteps} ${replacedSteps === 1 ? "step" : "steps"}. Pasting replaces ${replacedSteps === 1 ? "it" : "them"}.`}
       </ConfirmDialog>
     </div>
   );
